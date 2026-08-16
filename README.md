@@ -1,5 +1,8 @@
 # cna-c-template
 
+> **Status: In progress - ZATÍM NEFUNKČNÍ**
+
+
 A starter project for **[CNA](https://github.com/openeggbert/cna)** — a reimplementation of the XNA 4.0 game framework, using the **C binding**.
 
 Clone it, pick a renderer, build, and you have a running game loop with content loading, sprite drawing and input. Then delete `HelloGame` and write your own.
