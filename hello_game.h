@@ -1,8 +1,8 @@
 #ifndef HELLO_GAME_H
 #define HELLO_GAME_H
 
-#include <cna/cna.h>
+#include <CNA/C/cna.h>
 
-CnaGame HelloGame_Create();
+CNA_Handle HelloGame_Create(void);
 
 #endif
