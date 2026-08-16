@@ -1,0 +1,137 @@
+plugins {
+    id 'com.android.application'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+// Override with -PcnaRootDir=/path/to/cna when CNA is not a sibling checkout.
+def cnaRootDir = file(providers.gradleProperty("cnaRootDir").getOrElse("../cna")).canonicalFile
+
+// Override with -PcnaRenderer=OPENGLES3 to pick a renderer other than CNA's own
+// Android default (SDL_RENDERER). Not every renderer is Android-capable -- see
+// docs/renderers.md -- and the ones that need ../easy-gl + ../meta-gl need those
+// siblings present regardless of how this is built.
+def cnaRenderer = providers.gradleProperty("cnaRenderer").getOrElse("")
+def cnaSdlJavaDir = new File(cnaRootDir, "third_party/SDL/android-project/app/src/main/java")
+if (!cnaSdlJavaDir.isDirectory()) {
+    throw new GradleException(
+        "CNA SDL Android Java sources were not found at ${cnaSdlJavaDir}. " +
+        "Clone CNA next to this repository or pass -PcnaRootDir=/path/to/cna."
+    )
+}
+
+def templateContentDir = rootProject.file("../Content")
+if (!templateContentDir.isDirectory()) {
+    throw new GradleException("Game content directory was not found at ${templateContentDir}.")
+}
+def generatedAssetsDir = file("$buildDir/generated/cnaTemplateAssets")
+
+android {
+    namespace = "org.openeggbert.cnatemplate"
+    compileSdkVersion 35
+    ndkVersion = "29.0.14206865"
+
+    defaultConfig {
+        applicationId "org.openeggbert.cnatemplate"
+        minSdkVersion 21
+        targetSdkVersion 35
+        versionCode 1
+        versionName "1.0"
+
+        externalNativeBuild {
+            cmake {
+                // Pass Android platform and C++ STL config.
+                def cmakeArgs = [
+                        "-DANDROID_PLATFORM=android-21",
+                        "-DANDROID_STL=c++_static",
+                        "-DCNA_ROOT_DIR=${cnaRootDir}"
+                ]
+                if (!cnaRenderer.isEmpty()) {
+                    cmakeArgs.add("-DCNA_GRAPHICS_RENDERER=${cnaRenderer}")
+                }
+                arguments cmakeArgs.toArray(new String[0])
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            } else {
+                // key.properties not found - assembleRelease will fail with a clear message below
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (!keystorePropertiesFile.exists()) {
+                doFirst {
+                    throw new GradleException(
+                        "\n\n" +
+                        "========================================================\n" +
+                        " ERROR: key.properties not found in android/ directory.\n" +
+                        " Cannot build a signed release APK.\n" +
+                        " See ../README.md (Android section) for instructions on\n" +
+                        " creating key.properties and a signing keystore.\n" +
+                        "========================================================\n"
+                    )
+                }
+            }
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+            jniDebuggable true
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            // Point to the template's root CMakeLists.txt (one level up from android/).
+            path '../../CMakeLists.txt'
+            version "4.1.2"
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = [generatedAssetsDir]
+            java.srcDirs = [
+                cnaSdlJavaDir,
+                // Game-specific Java (just the minimal stub subclassing SDLActivity)
+                'src/main/java'
+            ]
+            res.srcDirs = ['src/main/res']
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+        }
+    }
+
+    lint {
+        abortOnError = true
+    }
+}
+
+tasks.register("syncCnaTemplateContent", Sync) {
+    from(templateContentDir)
+    into(new File(generatedAssetsDir, "Content"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(tasks.named("syncCnaTemplateContent"))
+}
+
+dependencies {
+    // No extra Java/Kotlin dependencies required - SDL provides the full activity.
+}
