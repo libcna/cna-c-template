@@ -1,9 +1,11 @@
 # cna-c-template
 
 > **Status: builds and runs.** Verified on 2026-08-17 against the CNA C ABI on the
-> `feature/binding` branch: the `headless` preset (3D path, no window) and the
-> `sdl-renderer` preset (2D path, real window) each build and complete
-> `--smoke-test` with no CNA call reporting a failure. The other presets are
+> `feature/binding` branch. Four presets build and run with no CNA call reporting a
+> failure, and both drawing paths were confirmed **on screen**, not just by exit
+> code: `sdl-renderer` (2D — the bouncing logo and the renderer banner),
+> `opengles3` (3D — the rotating textured cube), plus `headless` and `software`,
+> which execute their paths without presenting anywhere. The remaining presets are
 > generated from the renderer manifest and are **not** individually verified here.
 
 

@@ -107,6 +107,16 @@ typedef struct {
     unsigned int drawnFrames;
 } HelloGameData;
 
+/* Versioned structures are the ABI's forward-compatibility mechanism: the caller states the size
+   and version it compiled against, and a route refuses anything it does not recognise. Passing one
+   uninitialised does not merely lose the answer -- the call fails and the caller then reads stack
+   garbage, which is exactly how this template drew its logo several million pixels off-screen. */
+#define CNA_INIT_VERSIONED(value) do { \
+    memset(&(value), 0, sizeof(value)); \
+    (value).struct_size = (uint32_t)sizeof(value); \
+    (value).struct_version = UINT32_C(1); \
+} while (0)
+
 static CNA_StringView view(const char* const text) {
     CNA_StringView result;
     result.data = text;
@@ -214,7 +224,11 @@ static void Draw2DLogo(HelloGameData* data) {
     float rotation = 0.11f * sinf(motionSeconds * 0.55f);
     
     CNA_Texture2DInfo info;
-    cna_texture2d_get_info(data->logoTexture, &info);
+    CNA_INIT_VERSIONED(info);
+    if (!HelloGame_Check(cna_texture2d_get_info(data->logoTexture, &info),
+                         "cna_texture2d_get_info")) {
+        return;
+    }
     CNA_Vector2 origin = {(float)info.width * 0.5f, (float)info.height * 0.5f};
 
     CNA_SpriteBatchBeginInfo begin_info;
@@ -297,14 +311,17 @@ static void Draw3DLogoCube(HelloGameData* data) {
                     "cna_effect_matrices_set_projection");
 
     CNA_BlendState blendState;
+    CNA_INIT_VERSIONED(blendState);
     cna_blend_state_init(CNA_BLEND_STATE_PRESET_OPAQUE, &blendState);
     cna_graphics_device_set_blend_state(data->graphics, &blendState);
 
     CNA_DepthStencilState dsState;
+    CNA_INIT_VERSIONED(dsState);
     cna_depth_stencil_state_init(data->supportsDepth ? CNA_DEPTH_STENCIL_STATE_PRESET_DEFAULT : CNA_DEPTH_STENCIL_STATE_PRESET_NONE, &dsState);
     cna_graphics_device_set_depth_stencil_state(data->graphics, &dsState);
 
     CNA_RasterizerState rsState;
+    CNA_INIT_VERSIONED(rsState);
     cna_rasterizer_state_init(CNA_RASTERIZER_STATE_PRESET_CULL_NONE, &rsState);
     cna_graphics_device_set_rasterizer_state(data->graphics, &rsState);
 
@@ -320,7 +337,8 @@ static void Draw3DLogoCube(HelloGameData* data) {
         return;
     }
     
-    CNA_UserPrimitives primitives = { sizeof(CNA_UserPrimitives), 1 };
+    CNA_UserPrimitives primitives;
+    CNA_INIT_VERSIONED(primitives);
     primitives.primitive_type = CNA_PRIMITIVE_TRIANGLE_LIST;
     primitives.vertex_source = CNA_USER_VERTEX_SOURCE_POSITION_TEXTURE;
     primitives.vertex_data = cubeVertices;
@@ -362,10 +380,15 @@ static void DrawRendererBanner(HelloGameData* data) {
     CNA_Color translucentWhite;
     cna_color_from_non_premultiplied_int(255, 255, 255, 96, &translucentWhite);
 
-    CNA_SpriteBatchBeginInfo begin_info = { sizeof(CNA_SpriteBatchBeginInfo), 1 };
-    cna_sprite_batch_begin(data->spriteBatch, &begin_info);
+    CNA_SpriteBatchBeginInfo begin_info;
+    CNA_INIT_VERSIONED(begin_info);
+    if (!HelloGame_Check(cna_sprite_batch_begin(data->spriteBatch, &begin_info),
+                         "cna_sprite_batch_begin")) {
+        return;
+    }
 
-    CNA_SpriteCommand command = { sizeof(CNA_SpriteCommand), 1 };
+    CNA_SpriteCommand command;
+    CNA_INIT_VERSIONED(command);
     command.texture = data->solidTexture;
     command.destination.x = textX - padding;
     command.destination.y = textY - padding;
@@ -411,7 +434,9 @@ static CNA_Result HelloGame_Update(CNA_Handle game, const CNA_GameTime* time, vo
 
     if (data->hasWindow) {
         CNA_KeyboardState state;
-        cna_keyboard_get_state_for_player(game, 0, &state);
+        CNA_INIT_VERSIONED(state);
+        HelloGame_Check(cna_keyboard_get_state_for_player(game, 0, &state),
+                        "cna_keyboard_get_state_for_player");
         CNA_Bool escapeDown = CNA_FALSE;
         cna_keyboard_state_is_key_down(&state, CNA_KEY_ESCAPE, &escapeDown);
         if (escapeDown != CNA_FALSE) {
@@ -432,7 +457,11 @@ static CNA_Result HelloGame_Update(CNA_Handle game, const CNA_GameTime* time, vo
         cna_graphics_device_get_viewport(data->graphics, &viewport);
         
         CNA_Texture2DInfo info;
-        cna_texture2d_get_info(data->logoTexture, &info);
+        CNA_INIT_VERSIONED(info);
+        if (!HelloGame_Check(cna_texture2d_get_info(data->logoTexture, &info),
+                             "cna_texture2d_get_info")) {
+            return CNA_RESULT_INVALID_STATE;
+        }
         float logoSize = (float)(info.width > info.height ? info.width : info.height);
         float halfExtent = logoSize * 0.5f * MAXIMUM_2D_LOGO_SCALE * 1.15f;
         
