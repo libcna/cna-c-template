@@ -70,20 +70,59 @@ endforeach()
 # CNA is a sibling checkout, not a submodule, and is consumed with
 # add_subdirectory(): CNA installs and exports no CMake package, so
 # find_package(CNA) does not exist.
+#
+# Two layouts are supported without configuration, because both are in real use:
+# the template checked out beside CNA (`../cnabinding`), and the template checked
+# out inside a `_bindings/` directory that sits beside CNA (`../../cnabinding`).
+# The first existing candidate wins; -DCNA_ROOT_DIR overrides the search entirely.
+if(NOT DEFINED CNA_ROOT_DIR)
+    foreach(_cna_candidate
+            "${CMAKE_CURRENT_SOURCE_DIR}/../cnabinding"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../cnabinding"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../cna"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../cna")
+        if(EXISTS "${_cna_candidate}/CMakeLists.txt")
+            set(CNA_ROOT_DIR "${_cna_candidate}" CACHE PATH
+                "Path to the cnabinding framework checkout")
+            break()
+        endif()
+    endforeach()
+endif()
 set(CNA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cnabinding" CACHE PATH
     "Path to the cnabinding framework checkout")
 
 if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
     message(FATAL_ERROR
         "cna-c-template: CNA framework not found at '${CNA_ROOT_DIR}'.\n"
-        "CNA is a separate sibling repository, not part of this template:\n"
+        "CNA is a separate sibling repository, not part of this template. It is\n"
+        "looked for at ../cnabinding, ../../cnabinding, ../cna and ../../cna.\n"
         "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && git clone https://github.com/openeggbert/cnabinding.git\n"
         "or pass -DCNA_ROOT_DIR=/path/to/cnabinding to cmake.\n"
         "README.md \"Prerequisites\" lists every checkout you need.")
 endif()
+message(STATUS "cna-c-template: using CNA at ${CNA_ROOT_DIR}")
 
 # Enable the C API in the framework build.
 set(CNA_BUILD_C_API ON CACHE BOOL "Build the CNA C API" FORCE)
+
+# Draco is a pinned submodule of CNA that a plain `git clone` does not populate,
+# and CNA fails the configure outright when it is enabled but missing. Default it
+# off in exactly that case, so the template configures out of the box, and say so
+# rather than degrading silently. A populated submodule is left alone: whoever
+# initialised it wants the compressed-mesh decoder. Override either way with
+# -DCNA_ENABLE_DRACO=ON/OFF.
+if(NOT DEFINED CNA_ENABLE_DRACO)
+    if(EXISTS "${CNA_ROOT_DIR}/third_party/draco/CMakeLists.txt")
+        message(STATUS "cna-c-template: Draco submodule present, leaving KHR_draco_mesh_compression enabled")
+    else()
+        set(CNA_ENABLE_DRACO OFF CACHE BOOL "Enable Draco mesh decompression in CNA" FORCE)
+        message(STATUS
+            "cna-c-template: Draco submodule not initialised, building without "
+            "KHR_draco_mesh_compression. Run "
+            "'git -C ${CNA_ROOT_DIR} submodule update --init third_party/draco' "
+            "and reconfigure with -DCNA_ENABLE_DRACO=ON to enable it.")
+    endif()
+endif()
 
 # -----------------------------------------------------------------------------
 # Renderer selection

@@ -1,6 +1,10 @@
 # cna-c-template
 
-> **Status: In progress - NOT YET FUNCTIONAL**
+> **Status: builds and runs.** Verified on 2026-08-17 against the CNA C ABI on the
+> `feature/binding` branch: the `headless` preset (3D path, no window) and the
+> `sdl-renderer` preset (2D path, real window) each build and complete
+> `--smoke-test` with no CNA call reporting a failure. The other presets are
+> generated from the renderer manifest and are **not** individually verified here.
 
 
 A starter project for **[CNA](https://github.com/openeggbert/cna)** — a reimplementation of the XNA 4.0 game framework, using the **C binding**.
@@ -12,7 +16,8 @@ Clone it, pick a renderer, build, and you have a running game loop with content 
 ## Quick start
 
 ```bash
-# CNA and its dependencies are sibling checkouts, not submodules.
+# CNA and its dependencies are sibling checkouts, not submodules. The C ABI this
+# template binds against currently lives on cnabinding's feature/binding branch.
 git clone https://github.com/openeggbert/cna.git
 git clone https://github.com/openeggbert/sharp-runtime.git
 git clone https://github.com/openeggbert/cnabinding.git
@@ -40,8 +45,9 @@ ctest --preset headless
 | --- | --- |
 | CMake | 3.23 or newer |
 | Compiler | C11 (GCC, Clang, MSVC) |
-| Siblings | `../cna`, `../sharp-runtime`, `../cnabinding` |
+| Siblings | `../sharp-runtime`, and CNA at `../cnabinding`, `../../cnabinding`, `../cna` or `../../cna` — the first that exists wins, and `-DCNA_ROOT_DIR=` overrides the search |
 | CNA submodules | `third_party/SDL`, `SDL_image`, `SDL_mixer`, `enet` |
+| Optional | `third_party/draco`. When it is not initialised the template configures with `CNA_ENABLE_DRACO=OFF` and says so, rather than failing the configure. |
 
 ---
 

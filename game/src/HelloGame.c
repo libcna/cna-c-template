@@ -115,14 +115,27 @@ static CNA_StringView view(const char* const text) {
 }
 
 static void ReportRendererCapabilities(HelloGameData* data) {
+    /* The renderer NAME is for display only -- never branch on it. Behaviour belongs on
+       cna_graphics_device_supports_capability, which reports what the renderer can really do
+       rather than what its name suggests. */
     CNA_Bool custom_effects = CNA_FALSE;
-    cna_graphics_device_supports_capability(data->graphics, CNA_GRAPHICS_CAPABILITY_CUSTOM_EFFECTS, &custom_effects);
+    HelloGame_Check(cna_graphics_device_supports_capability(
+                        data->graphics, CNA_GRAPHICS_CAPABILITY_CUSTOM_EFFECTS, &custom_effects),
+                    "cna_graphics_device_supports_capability(CUSTOM_EFFECTS)");
+
+    CNA_RendererInfo info;
+    memset(&info, 0, sizeof(info));
+    info.struct_size = (uint32_t)sizeof(info);
+    info.struct_version = UINT32_C(1);
+    HelloGame_Check(cna_graphics_device_get_renderer_info(data->graphics, &info),
+                    "cna_graphics_device_get_renderer_info");
 
     printf("cna-c-template: renderer %s\n", data->rendererName);
     printf("  window          : %s\n", data->hasWindow ? "yes" : "no (windowless renderer)");
     printf("  3D pipeline     : %s\n", data->supportsThreeD ? "yes" : "no (2D only)");
     printf("  depth/stencil   : %s\n", data->supportsDepth ? "yes" : "no");
     printf("  custom shaders  : %s\n", (custom_effects != CNA_FALSE) ? "yes" : "no");
+    printf("  max texture size: %u\n", (unsigned)info.max_texture_dimension);
     fflush(stdout);
 }
 
@@ -131,17 +144,37 @@ static CNA_Result HelloGame_LoadContent(CNA_Handle game, const CNA_GameTime* tim
     (void)error;
     HelloGameData* data = (HelloGameData*)context;
 
-    cna_game_get_graphics_device(game, &data->graphics);
-    cna_sprite_batch_create(data->graphics, &data->spriteBatch);
-
-    cna_game_get_content_manager_ext(game, &data->content);
-    cna_content_manager_load_texture2d(data->content, view("logo"), &data->logoTexture);
+    if (!HelloGame_Check(cna_game_get_graphics_device(game, &data->graphics),
+                         "cna_game_get_graphics_device") ||
+        !HelloGame_Check(cna_sprite_batch_create(data->graphics, &data->spriteBatch),
+                         "cna_sprite_batch_create") ||
+        !HelloGame_Check(cna_game_get_content_manager_ext(game, &data->content),
+                         "cna_game_get_content_manager_ext") ||
+        !HelloGame_Check(cna_content_manager_load_texture2d(
+                             data->content, view("logo"), &data->logoTexture),
+                         "cna_content_manager_load_texture2d(logo)")) {
+        /* Returning the failure aborts the run rather than drawing frames with no content --
+           which is what a template must do, because a game that silently draws nothing is the
+           hardest kind of breakage to notice. */
+        return CNA_RESULT_INVALID_STATE;
+    }
 
     CNA_Color white = CNA_COLOR_WHITE;
-    cna_texture2d_create_from_rgba8(data->graphics, 1, 1, &white, 1, &data->solidTexture);
+    if (!HelloGame_Check(cna_texture2d_create_from_rgba8(
+                             data->graphics, 1, 1, &white, 1, &data->solidTexture),
+                         "cna_texture2d_create_from_rgba8")) {
+        return CNA_RESULT_INVALID_STATE;
+    }
 
     uint64_t name_len = 0;
-    cna_graphics_device_copy_renderer_name(data->graphics, data->rendererName, sizeof(data->rendererName), &name_len);
+    HelloGame_Check(cna_graphics_device_copy_renderer_name(
+                        data->graphics, data->rendererName,
+                        (uint64_t)sizeof(data->rendererName) - 1U, &name_len),
+                    "cna_graphics_device_copy_renderer_name");
+    /* The count/copy pair never writes a terminator; this buffer is printed as a C string. */
+    if (name_len < sizeof(data->rendererName)) {
+        data->rendererName[name_len] = '\0';
+    }
 
     uint64_t native_handle = 0;
     cna_game_window_get_native_handle_ext(game, &native_handle);
@@ -184,24 +217,42 @@ static void Draw2DLogo(HelloGameData* data) {
     cna_texture2d_get_info(data->logoTexture, &info);
     CNA_Vector2 origin = {(float)info.width * 0.5f, (float)info.height * 0.5f};
 
-    CNA_SpriteBatchBeginInfo begin_info = { sizeof(CNA_SpriteBatchBeginInfo), 1 };
-    cna_sprite_batch_begin(data->spriteBatch, &begin_info);
+    CNA_SpriteBatchBeginInfo begin_info;
+    memset(&begin_info, 0, sizeof(begin_info));
+    begin_info.struct_size = (uint32_t)sizeof(begin_info);
+    begin_info.struct_version = UINT32_C(1);
+    if (!HelloGame_Check(cna_sprite_batch_begin(data->spriteBatch, &begin_info),
+                         "cna_sprite_batch_begin")) {
+        return;
+    }
 
-    CNA_SpriteCommand command = { sizeof(CNA_SpriteCommand), 1 };
+    /* The position-and-scale command, not the destination-rectangle one. The C API's own header
+       spells out why they are not interchangeable: with a position, the origin is measured in
+       source-texture pixels and the scale applies after that offset, which is exactly what the
+       C++ template's Draw(texture, position, ..., origin, scale, ...) does. Computing a
+       destination rectangle instead moved the logo and dropped the origin-relative scaling. */
+    CNA_SpriteScaledCommand command;
+    memset(&command, 0, sizeof(command));
+    command.struct_size = (uint32_t)sizeof(command);
+    command.struct_version = UINT32_C(1);
     command.texture = data->logoTexture;
-    command.destination.x = (int32_t)data->position.x;
-    command.destination.y = (int32_t)data->position.y;
-    command.destination.width = (int32_t)((float)info.width * scale);
-    command.destination.height = (int32_t)((float)info.height * scale);
-    command.source.x = 0; command.source.y = 0; command.source.width = (int32_t)info.width; command.source.height = (int32_t)info.height;
+    command.position = data->position;
+    /* Zero width and height means "the whole texture", the empty optional of the canonical call. */
+    command.source.x = 0;
+    command.source.y = 0;
+    command.source.width = 0;
+    command.source.height = 0;
     command.color = CNA_COLOR_WHITE;
-    command.origin = origin;
     command.rotation = rotation;
-    command.effects = 0;
+    command.origin = origin;
+    command.scale.x = scale;
+    command.scale.y = scale;
+    command.effects = CNA_SPRITE_EFFECT_NONE;
     command.layer_depth = 0.0f;
 
-    cna_sprite_batch_submit_many(data->spriteBatch, &command, 1);
-    cna_sprite_batch_end(data->spriteBatch);
+    HelloGame_Check(cna_sprite_batch_submit_scaled_many(data->spriteBatch, &command, 1),
+                    "cna_sprite_batch_submit_scaled_many");
+    HelloGame_Check(cna_sprite_batch_end(data->spriteBatch), "cna_sprite_batch_end");
 }
 
 static void Draw3DLogoCube(HelloGameData* data) {
@@ -238,9 +289,12 @@ static void Draw3DLogoCube(HelloGameData* data) {
     cna_matrix_create_look_at(eye, target, up, &mView);
     cna_matrix_create_perspective_field_of_view(0.78539816339f, aspectRatio, 0.1f, 100.0f, &mProj);
 
-    cna_effect_matrices_set_world(data->cubeEffect, mWorld);
-    cna_effect_matrices_set_view(data->cubeEffect, mView);
-    cna_effect_matrices_set_projection(data->cubeEffect, mProj);
+    HelloGame_Check(cna_effect_matrices_set_world(data->cubeEffect, mWorld),
+                    "cna_effect_matrices_set_world");
+    HelloGame_Check(cna_effect_matrices_set_view(data->cubeEffect, mView),
+                    "cna_effect_matrices_set_view");
+    HelloGame_Check(cna_effect_matrices_set_projection(data->cubeEffect, mProj),
+                    "cna_effect_matrices_set_projection");
 
     CNA_BlendState blendState;
     cna_blend_state_init(CNA_BLEND_STATE_PRESET_OPAQUE, &blendState);
@@ -255,11 +309,16 @@ static void Draw3DLogoCube(HelloGameData* data) {
     cna_graphics_device_set_rasterizer_state(data->graphics, &rsState);
 
     CNA_EffectTechniqueHandle technique = CNA_INVALID_HANDLE;
-    cna_effect_get_current_technique(data->cubeEffect, &technique);
     CNA_EffectPassCollectionHandle passes = CNA_INVALID_HANDLE;
-    cna_effect_technique_get_passes(technique, &passes);
     uint64_t pass_count = 0;
-    cna_effect_pass_collection_get_count(passes, &pass_count);
+    if (!HelloGame_Check(cna_effect_get_current_technique(data->cubeEffect, &technique),
+                         "cna_effect_get_current_technique") ||
+        !HelloGame_Check(cna_effect_technique_get_passes(technique, &passes),
+                         "cna_effect_technique_get_passes") ||
+        !HelloGame_Check(cna_effect_pass_collection_get_count(passes, &pass_count),
+                         "cna_effect_pass_collection_get_count")) {
+        return;
+    }
     
     CNA_UserPrimitives primitives = { sizeof(CNA_UserPrimitives), 1 };
     primitives.primitive_type = CNA_PRIMITIVE_TRIANGLE_LIST;
@@ -272,9 +331,17 @@ static void Draw3DLogoCube(HelloGameData* data) {
     for (uint64_t i = 0; i < pass_count; ++i) {
         CNA_EffectPassHandle pass = CNA_INVALID_HANDLE;
         cna_effect_pass_collection_get_at(passes, i, &pass);
-        cna_effect_pass_apply(pass);
-        cna_graphics_device_draw_user_primitives(data->graphics, &primitives);
+        HelloGame_Check(cna_effect_pass_apply(pass), "cna_effect_pass_apply");
+        HelloGame_Check(
+            cna_graphics_device_draw_user_primitives(data->graphics, &primitives),
+            "cna_graphics_device_draw_user_primitives");
+        cna_effect_pass_destroy(pass);
     }
+
+    /* Both views are owned handles, released every frame so the registry does not grow
+       for the life of the process. */
+    cna_effect_pass_collection_destroy(passes);
+    cna_effect_technique_destroy(technique);
 }
 
 static void DrawRendererBanner(HelloGameData* data) {
@@ -331,6 +398,16 @@ static void DrawRendererBanner(HelloGameData* data) {
 static CNA_Result HelloGame_Update(CNA_Handle game, const CNA_GameTime* time, void* context, CNA_CallbackError* error) {
     (void)error;
     HelloGameData* data = (HelloGameData*)context;
+
+    /* The graphics-device handle is CALLBACK-SCOPED: CNA invalidates it before the callback that
+       produced it returns, and it has no release operation. Caching the one LoadContent obtained
+       and reusing it here is what made every draw call in this template fail with
+       "The callback-scoped graphics-device handle is invalid for this call" -- silently, until the
+       results were checked. It is re-borrowed at the top of every callback that needs it. */
+    if (!HelloGame_Check(cna_game_get_graphics_device(game, &data->graphics),
+                         "cna_game_get_graphics_device")) {
+        return CNA_RESULT_INVALID_STATE;
+    }
 
     if (data->hasWindow) {
         CNA_KeyboardState state;
@@ -389,6 +466,12 @@ static CNA_Result HelloGame_Draw(CNA_Handle game, const CNA_GameTime* time, void
     (void)error;
     HelloGameData* data = (HelloGameData*)context;
 
+    /* Re-borrowed every frame; see the note in HelloGame_Update. */
+    if (!HelloGame_Check(cna_game_get_graphics_device(game, &data->graphics),
+                         "cna_game_get_graphics_device")) {
+        return CNA_RESULT_INVALID_STATE;
+    }
+
     if (data->supportsThreeD && data->supportsDepth) {
         cna_graphics_device_clear_color_depth(data->graphics, CNA_COLOR_CORNFLOWER_BLUE, 1.0f);
     } else {
@@ -431,24 +514,63 @@ static CNA_Result HelloGame_UnloadContent(CNA_Handle game, const CNA_GameTime* t
     return CNA_RESULT_SUCCESS;
 }
 
+/* Every route in this ABI returns a CNA_Result and records a message for the calling thread.
+   Ignoring both is how this template used to exit(0) having drawn nothing and printed nothing:
+   game creation was refused, the handle stayed invalid, and main() had no way to know. */
+bool HelloGame_Check(CNA_Result result, const char* what) {
+    char message[512];
+    uint64_t length = 0U;
+
+    if (result == CNA_RESULT_SUCCESS) {
+        return true;
+    }
+    fprintf(stderr, "cna-c-template: %s failed (CNA_Result %d)", what, (int)result);
+    if (cna_error_copy_last_message(message, (uint64_t)sizeof(message) - 1U, &length) ==
+            CNA_RESULT_SUCCESS && length > 0U) {
+        message[length] = '\0';
+        fprintf(stderr, ": %s", message);
+    }
+    fprintf(stderr, "\n");
+    fflush(stderr);
+    return false;
+}
+
 CNA_Handle HelloGame_Create(bool smokeTest) {
     HelloGameData* data = (HelloGameData*)malloc(sizeof(HelloGameData));
+    if (data == NULL) {
+        fprintf(stderr, "cna-c-template: out of memory\n");
+        return CNA_INVALID_HANDLE;
+    }
     memset(data, 0, sizeof(HelloGameData));
     data->smokeTest = smokeTest;
 
-    CNA_GameCallbacks callbacks = { sizeof(CNA_GameCallbacks), 1 };
+    /* Both structures are zeroed first and then filled field by field. The `{sizeof(T), version}`
+       shorthand this template used before leaves every later field at zero, and a zero
+       target_elapsed_time_ticks is refused: the ABI requires it to be positive. */
+    CNA_GameCallbacks callbacks;
+    memset(&callbacks, 0, sizeof(callbacks));
+    callbacks.struct_size = (uint32_t)sizeof(callbacks);
+    callbacks.struct_version = UINT32_C(1);
     callbacks.load_content = HelloGame_LoadContent;
     callbacks.update = HelloGame_Update;
     callbacks.draw = HelloGame_Draw;
     callbacks.unload_content = HelloGame_UnloadContent;
     callbacks.context = data;
 
-    CNA_GameCreateInfo create_info = { sizeof(CNA_GameCreateInfo), 1 };
+    CNA_GameCreateInfo create_info;
+    memset(&create_info, 0, sizeof(create_info));
+    create_info.struct_size = (uint32_t)sizeof(create_info);
+    create_info.struct_version = UINT32_C(1);
+    create_info.is_fixed_time_step = CNA_TRUE;
+    create_info.target_elapsed_time_ticks = INT64_C(166667); /* 1/60 s, in 100 ns ticks */
     create_info.window_title = view("cna-c-template - HelloGame");
     create_info.callbacks = &callbacks;
 
     CNA_Handle game = CNA_INVALID_HANDLE;
-    cna_game_create(&create_info, &game);
+    if (!HelloGame_Check(cna_game_create(&create_info, &game), "cna_game_create")) {
+        free(data);
+        return CNA_INVALID_HANDLE;
+    }
 
     return game;
 }
