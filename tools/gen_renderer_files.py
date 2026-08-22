@@ -357,6 +357,7 @@ def build_presets(renderers: list[dict]) -> dict:
         renderer: dict,
         preset_name: str,
         inherits: str,
+        configuration: str,
         condition: dict,
         runnable: bool,
     ) -> None:
@@ -381,6 +382,7 @@ def build_presets(renderers: list[dict]) -> dict:
             {
                 "name": preset_name,
                 "configurePreset": preset_name,
+                "configuration": configuration,
                 "condition": condition,
             }
         )
@@ -390,6 +392,7 @@ def build_presets(renderers: list[dict]) -> dict:
                 {
                     "name": preset_name,
                     "configurePreset": preset_name,
+                    "configuration": configuration,
                     "output": {"outputOnFailure": True},
                     "execution": {"noTestsAction": "error"},
                     "filter": {
@@ -414,6 +417,7 @@ def build_presets(renderers: list[dict]) -> dict:
                 renderer,
                 f"web-{slug(renderer['name'])}",
                 "web-base",
+                "Release",
                 host_condition(list(DESKTOP_PLATFORM_HOSTS)),
                 False,
             )
@@ -425,6 +429,7 @@ def build_presets(renderers: list[dict]) -> dict:
             renderer,
             slug(renderer["name"]),
             "base",
+            "Debug",
             host_condition(platforms),
             True,
         )
@@ -436,6 +441,7 @@ def build_presets(renderers: list[dict]) -> dict:
                 renderer,
                 f"windows-{slug(renderer['name'])}",
                 "mingw-base",
+                "Debug",
                 host_condition(["linux"]),
                 False,
             )
@@ -562,7 +568,9 @@ def build_doc(renderers: list[dict]) -> str:
         "Native configure, build, and runnable test presets all receive the same host condition, "
         "derived from every supported desktop platform above. Android uses Gradle instead. Web "
         "presets are cross-build routes available on Linux, Windows, and macOS hosts. Runnable "
-        "test presets treat zero discovered tests as an error."
+        "test presets treat zero discovered tests as an error. Native and MinGW build presets "
+        "select `Debug`; web build presets select `Release`. Native test presets select the same "
+        "configuration as their associated build preset, including with multi-config generators."
     )
     add("")
     add(

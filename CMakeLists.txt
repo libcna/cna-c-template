@@ -572,6 +572,7 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
     endif()
 
     set_tests_properties(${_smoke_test} PROPERTIES
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:${_app}>"
         TIMEOUT 30
         LABELS "${_labels}")
     set_tests_properties(${_failure_test} PROPERTIES

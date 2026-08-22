@@ -34,7 +34,7 @@ python3 cna-c-template/tools/dependency_pins.py \
 cd cna-c-template
 cmake --preset headless
 cmake --build --preset headless -j3
-python3 tools/verify_ctest_contract.py --test-dir build-headless
+python3 tools/verify_ctest_contract.py --test-dir build-headless --config Debug
 ctest --preset headless
 ```
 
@@ -130,7 +130,11 @@ Web presets also omit CTest presets because the output requires a browser runtim
 Native preset visibility is derived from every desktop platform in `cmake/renderers.json`: for
 example, Linux + Windows renderers are hidden on macOS, while Metal is shown only on macOS.
 Configure, build, and runnable test presets carry the same condition, so unsupported or orphan
-presets do not leak through inheritance. Android uses Gradle rather than desktop CMake presets.
+presets do not leak through inheritance. Native and MinGW build presets explicitly select `Debug`,
+web build presets select `Release`, and native test presets select the matching build
+configuration. `ctest --preset <native-preset>` therefore works directly with single-config and
+multi-config generators such as Visual Studio and Ninja Multi-Config. Android uses Gradle rather
+than desktop CMake presets.
 
 ## Android
 
@@ -243,10 +247,14 @@ python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py \
 python3 -m unittest discover -s test -v
 python3 tools/gen_renderer_files.py --check
 # After configuring build-headless:
-python3 tools/verify_ctest_contract.py --test-dir build-headless
-ctest --test-dir build-headless --output-on-failure
+python3 tools/verify_ctest_contract.py --test-dir build-headless --config Debug
+ctest --test-dir build-headless -C Debug --output-on-failure
 git diff --check
 ```
+
+`--config` is optional for a single-config build tree and required for a multi-config tree; the
+verifier refuses to guess. When invoking CTest by build directory instead of through a generated
+test preset, pass the same configuration with `ctest -C Debug`.
 
 ## License
 

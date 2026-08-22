@@ -101,6 +101,66 @@ class RendererGeneratorTests(unittest.TestCase):
         self.assertNotIn("windows-directx11", test_names)
         self.assertNotIn("windows-directx12", test_names)
 
+    def test_native_build_and_test_presets_select_matching_debug_configuration(self):
+        presets = self.generator.build_presets(self.renderers)
+        configure = {
+            preset["name"]: preset for preset in presets["configurePresets"]
+        }
+        self.assertEqual(
+            "Debug", configure["base"]["cacheVariables"]["CMAKE_BUILD_TYPE"]
+        )
+        builds = {preset["name"]: preset for preset in presets["buildPresets"]}
+        tests = {preset["name"]: preset for preset in presets["testPresets"]}
+        native_names = {
+            name
+            for name, preset in configure.items()
+            if not preset.get("hidden") and preset.get("inherits") == "base"
+        }
+        self.assertTrue(native_names)
+        self.assertLessEqual(set(tests), native_names)
+        for name in native_names:
+            self.assertEqual("Debug", builds[name]["configuration"])
+        for name, preset in tests.items():
+            self.assertEqual(builds[name]["configuration"], preset["configuration"])
+
+    def test_mingw_build_presets_select_debug_and_have_no_tests(self):
+        presets = self.generator.build_presets(self.renderers)
+        configure = {
+            preset["name"]: preset for preset in presets["configurePresets"]
+        }
+        self.assertEqual(
+            "Debug", configure["base"]["cacheVariables"]["CMAKE_BUILD_TYPE"]
+        )
+        tests = {preset["name"] for preset in presets["testPresets"]}
+        mingw_builds = [
+            preset
+            for preset in presets["buildPresets"]
+            if configure[preset["name"]].get("inherits") == "mingw-base"
+        ]
+        self.assertTrue(mingw_builds)
+        for preset in mingw_builds:
+            self.assertEqual("Debug", preset["configuration"])
+            self.assertNotIn(preset["name"], tests)
+
+    def test_web_build_presets_select_release_and_have_no_tests(self):
+        presets = self.generator.build_presets(self.renderers)
+        configure = {
+            preset["name"]: preset for preset in presets["configurePresets"]
+        }
+        self.assertEqual(
+            "Release", configure["release"]["cacheVariables"]["CMAKE_BUILD_TYPE"]
+        )
+        tests = {preset["name"] for preset in presets["testPresets"]}
+        web_builds = [
+            preset
+            for preset in presets["buildPresets"]
+            if configure[preset["name"]].get("inherits") == "web-base"
+        ]
+        self.assertTrue(web_builds)
+        for preset in web_builds:
+            self.assertEqual("Release", preset["configuration"])
+            self.assertNotIn(preset["name"], tests)
+
     def test_host_conditions_cover_configure_build_and_test_presets(self):
         presets = self.generator.build_presets(self.renderers)
         for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
@@ -149,6 +209,7 @@ class RendererGeneratorTests(unittest.TestCase):
         for name, preset in tests.items():
             self.assertEqual(name, preset["configurePreset"])
             self.assertEqual(configure[name]["condition"], preset["condition"])
+            self.assertEqual(build[name]["configuration"], preset["configuration"])
             self.assertEqual("error", preset["execution"]["noTestsAction"])
 
     def test_host_condition_derives_every_desktop_platform_combination(self):

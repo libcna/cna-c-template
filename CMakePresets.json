@@ -580,6 +580,7 @@
     {
       "name": "sdl-renderer",
       "configurePreset": "sdl-renderer",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -593,6 +594,7 @@
     {
       "name": "sdl-gpu",
       "configurePreset": "sdl-gpu",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -606,6 +608,7 @@
     {
       "name": "opengles3",
       "configurePreset": "opengles3",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -619,6 +622,7 @@
     {
       "name": "opengles2",
       "configurePreset": "opengles2",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -632,6 +636,7 @@
     {
       "name": "opengl33",
       "configurePreset": "opengl33",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -645,6 +650,7 @@
     {
       "name": "web-webgl2",
       "configurePreset": "web-webgl2",
+      "configuration": "Release",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -658,6 +664,7 @@
     {
       "name": "web-webgl1",
       "configurePreset": "web-webgl1",
+      "configuration": "Release",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -671,6 +678,7 @@
     {
       "name": "opengl1",
       "configurePreset": "opengl1",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -683,6 +691,7 @@
     {
       "name": "opengl2",
       "configurePreset": "opengl2",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -696,6 +705,7 @@
     {
       "name": "opengl4",
       "configurePreset": "opengl4",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -709,6 +719,7 @@
     {
       "name": "vulkan",
       "configurePreset": "vulkan",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -721,6 +732,7 @@
     {
       "name": "webgpu",
       "configurePreset": "webgpu",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -734,6 +746,7 @@
     {
       "name": "metal",
       "configurePreset": "metal",
+      "configuration": "Debug",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -743,6 +756,7 @@
     {
       "name": "headless",
       "configurePreset": "headless",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -756,6 +770,7 @@
     {
       "name": "software",
       "configurePreset": "software",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -769,6 +784,7 @@
     {
       "name": "stub",
       "configurePreset": "stub",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -782,6 +798,7 @@
     {
       "name": "portablegl",
       "configurePreset": "portablegl",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -795,6 +812,7 @@
     {
       "name": "blend2d",
       "configurePreset": "blend2d",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -808,6 +826,7 @@
     {
       "name": "web-canvas",
       "configurePreset": "web-canvas",
+      "configuration": "Release",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -821,6 +840,7 @@
     {
       "name": "web-html-dom",
       "configurePreset": "web-html-dom",
+      "configuration": "Release",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -834,6 +854,7 @@
     {
       "name": "web-svg-dom",
       "configurePreset": "web-svg-dom",
+      "configuration": "Release",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -847,6 +868,7 @@
     {
       "name": "bgfx",
       "configurePreset": "bgfx",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -860,6 +882,7 @@
     {
       "name": "sokol",
       "configurePreset": "sokol",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -873,6 +896,7 @@
     {
       "name": "fna3d",
       "configurePreset": "fna3d",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -886,6 +910,7 @@
     {
       "name": "freedirect",
       "configurePreset": "freedirect",
+      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -899,6 +924,7 @@
     {
       "name": "directx11",
       "configurePreset": "directx11",
+      "configuration": "Debug",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -908,6 +934,7 @@
     {
       "name": "windows-directx11",
       "configurePreset": "windows-directx11",
+      "configuration": "Debug",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -917,6 +944,7 @@
     {
       "name": "directx12",
       "configurePreset": "directx12",
+      "configuration": "Debug",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -926,6 +954,7 @@
     {
       "name": "windows-directx12",
       "configurePreset": "windows-directx12",
+      "configuration": "Debug",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -937,6 +966,7 @@
     {
       "name": "sdl-renderer",
       "configurePreset": "sdl-renderer",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -961,6 +991,7 @@
     {
       "name": "sdl-gpu",
       "configurePreset": "sdl-gpu",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -985,6 +1016,7 @@
     {
       "name": "opengles3",
       "configurePreset": "opengles3",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1009,6 +1041,7 @@
     {
       "name": "opengles2",
       "configurePreset": "opengles2",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1033,6 +1066,7 @@
     {
       "name": "opengl33",
       "configurePreset": "opengl33",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1057,6 +1091,7 @@
     {
       "name": "opengl1",
       "configurePreset": "opengl1",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1080,6 +1115,7 @@
     {
       "name": "opengl2",
       "configurePreset": "opengl2",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1104,6 +1140,7 @@
     {
       "name": "opengl4",
       "configurePreset": "opengl4",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1128,6 +1165,7 @@
     {
       "name": "vulkan",
       "configurePreset": "vulkan",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1151,6 +1189,7 @@
     {
       "name": "webgpu",
       "configurePreset": "webgpu",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1175,6 +1214,7 @@
     {
       "name": "metal",
       "configurePreset": "metal",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1195,6 +1235,7 @@
     {
       "name": "headless",
       "configurePreset": "headless",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1219,6 +1260,7 @@
     {
       "name": "software",
       "configurePreset": "software",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1243,6 +1285,7 @@
     {
       "name": "stub",
       "configurePreset": "stub",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1267,6 +1310,7 @@
     {
       "name": "portablegl",
       "configurePreset": "portablegl",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1291,6 +1335,7 @@
     {
       "name": "blend2d",
       "configurePreset": "blend2d",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1315,6 +1360,7 @@
     {
       "name": "bgfx",
       "configurePreset": "bgfx",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1339,6 +1385,7 @@
     {
       "name": "sokol",
       "configurePreset": "sokol",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1363,6 +1410,7 @@
     {
       "name": "fna3d",
       "configurePreset": "fna3d",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1387,6 +1435,7 @@
     {
       "name": "freedirect",
       "configurePreset": "freedirect",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1411,6 +1460,7 @@
     {
       "name": "directx11",
       "configurePreset": "directx11",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
@@ -1431,6 +1481,7 @@
     {
       "name": "directx12",
       "configurePreset": "directx12",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       },
