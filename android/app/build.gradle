@@ -5,11 +5,33 @@ plugins {
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.withInputStream { stream -> keystoreProperties.load(stream) }
 }
 
-// Override with -PcnaRootDir=/path/to/cna when CNA is not a sibling checkout.
-def cnaRootDir = file(providers.gradleProperty("cnaRootDir").getOrElse("../cna")).canonicalFile
+def templateRootDir = rootProject.projectDir.parentFile.canonicalFile
+def resolveFromTemplateRoot = { Object value ->
+    def candidate = new File(value.toString())
+    if (!candidate.isAbsolute()) {
+        candidate = new File(templateRootDir, value.toString())
+    }
+    return candidate.canonicalFile
+}
+
+// Use the same dependency layout and order as root CMake and the renderer generator.
+// Relative -PcnaRootDir overrides are deliberately resolved from the template root,
+// never from the surprising android/app project directory.
+def cnaRootOverride = providers.gradleProperty("cnaRootDir").getOrNull()
+def cnaCandidates = [
+    new File(templateRootDir.parentFile, "cna").canonicalFile,
+    new File(templateRootDir.parentFile.parentFile, "cna").canonicalFile
+]
+def cnaRootDir = cnaRootOverride != null
+        ? resolveFromTemplateRoot(cnaRootOverride)
+        : (cnaCandidates.find { new File(it, "CMakeLists.txt").isFile() } ?: cnaCandidates[0])
+def cnaSharpRuntimeRootOverride = providers.gradleProperty("cnaSharpRuntimeRootDir").getOrNull()
+def cnaSharpRuntimeRootDir = cnaSharpRuntimeRootOverride != null
+        ? resolveFromTemplateRoot(cnaSharpRuntimeRootOverride)
+        : null
 
 // Override with -PcnaRenderer=OPENGLES3 to pick a renderer other than CNA's own
 // Android default (SDL_RENDERER). Not every renderer is Android-capable -- see
@@ -20,11 +42,12 @@ def cnaSdlJavaDir = new File(cnaRootDir, "third_party/SDL/android-project/app/sr
 if (!cnaSdlJavaDir.isDirectory()) {
     throw new GradleException(
         "CNA SDL Android Java sources were not found at ${cnaSdlJavaDir}. " +
-        "Clone CNA next to this repository or pass -PcnaRootDir=/path/to/cna."
+        "CNA was searched at ${cnaCandidates.join(', ')}. Clone the pinned CNA checkout " +
+        "there or pass -PcnaRootDir=/path/to/cna (relative paths start at ${templateRootDir})."
     )
 }
 
-def templateContentDir = rootProject.file("../Content")
+def templateContentDir = new File(templateRootDir, "Content")
 if (!templateContentDir.isDirectory()) {
     throw new GradleException("Game content directory was not found at ${templateContentDir}.")
 }
@@ -34,6 +57,11 @@ android {
     namespace = "org.openeggbert.cnatemplate"
     compileSdkVersion 35
     ndkVersion = "29.0.14206865"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 
     defaultConfig {
         applicationId "org.openeggbert.cnatemplate"
@@ -50,10 +78,14 @@ android {
                         "-DANDROID_STL=c++_static",
                         "-DCNA_ROOT_DIR=${cnaRootDir}"
                 ]
+                if (cnaSharpRuntimeRootDir != null) {
+                    cmakeArgs.add("-DCNA_SHARP_RUNTIME_ROOT=${cnaSharpRuntimeRootDir}")
+                }
                 if (!cnaRenderer.isEmpty()) {
                     cmakeArgs.add("-DCNA_GRAPHICS_RENDERER=${cnaRenderer}")
                 }
-                arguments cmakeArgs.toArray(new String[0])
+                // Interpolated Groovy GStrings are not assignable to Java String[].
+                arguments(*cmakeArgs.collect { argument -> argument.toString() })
                 abiFilters 'arm64-v8a', 'x86_64'
             }
         }
@@ -61,32 +93,24 @@ android {
 
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                storeFile file(keystoreProperties["storeFile"])
-                storePassword keystoreProperties["storePassword"]
-                keyAlias keystoreProperties["keyAlias"]
-                keyPassword keystoreProperties["keyPassword"]
-            } else {
-                // key.properties not found - assembleRelease will fail with a clear message below
+            def requiredKeys = ["storeFile", "storePassword", "keyAlias", "keyPassword"]
+            def hasCompleteProperties = keystorePropertiesFile.exists() &&
+                    requiredKeys.every { key ->
+                        def value = keystoreProperties[key]
+                        value != null && !value.toString().trim().isEmpty()
+                    }
+            if (hasCompleteProperties) {
+                // Relative storeFile paths are resolved from android/, beside key.properties.
+                storeFile = rootProject.file(keystoreProperties["storeFile"])
+                storePassword = keystoreProperties["storePassword"]
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
             }
         }
     }
     buildTypes {
         release {
-            if (!keystorePropertiesFile.exists()) {
-                doFirst {
-                    throw new GradleException(
-                        "\n\n" +
-                        "========================================================\n" +
-                        " ERROR: key.properties not found in android/ directory.\n" +
-                        " Cannot build a signed release APK.\n" +
-                        " See ../README.md (Android section) for instructions on\n" +
-                        " creating key.properties and a signing keystore.\n" +
-                        "========================================================\n"
-                    )
-                }
-            }
-            signingConfig signingConfigs.release
+            signingConfig = signingConfigs.release
             minifyEnabled false
             debuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -99,9 +123,8 @@ android {
 
     externalNativeBuild {
         cmake {
-            // Point to the template's root CMakeLists.txt (one level up from android/).
-            path '../../CMakeLists.txt'
-            version "4.1.2"
+            path rootProject.file('../CMakeLists.txt')
+            version = "4.1.2"
         }
     }
 
@@ -121,6 +144,45 @@ android {
     lint {
         abortOnError = true
     }
+}
+
+// Signing validation belongs to the task lifecycle, not the BuildType DSL. AGP
+// does not create validateSigningRelease when the signing object is incomplete,
+// so own a stable task and make preReleaseBuild depend on it instead of trying to
+// decorate an optional AGP task by name.
+def validateCnaReleaseSigning = tasks.register("validateCnaReleaseSigning") {
+    group = "verification"
+    description = "Checks the private credentials required by Android release builds."
+    doLast {
+        def requiredKeys = ["storeFile", "storePassword", "keyAlias", "keyPassword"]
+        if (!keystorePropertiesFile.isFile()) {
+            throw new GradleException(
+                "Release signing requires ${keystorePropertiesFile}. " +
+                "Create it as documented in ../README.md under 'Android release signing'."
+            )
+        }
+        def missingKeys = requiredKeys.findAll { key ->
+            def value = keystoreProperties[key]
+            value == null || value.toString().trim().isEmpty()
+        }
+        if (!missingKeys.isEmpty()) {
+            throw new GradleException(
+                "Release signing properties are missing or empty in ${keystorePropertiesFile}: " +
+                "${missingKeys.join(', ')}. See ../README.md under 'Android release signing'."
+            )
+        }
+        def configuredStoreFile = rootProject.file(keystoreProperties["storeFile"])
+        if (!configuredStoreFile.isFile()) {
+            throw new GradleException(
+                "Release signing keystore was not found at ${configuredStoreFile}. " +
+                "Fix storeFile in ${keystorePropertiesFile}; relative paths start in android/."
+            )
+        }
+    }
+}
+
+tasks.matching { task -> task.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateCnaReleaseSigning)
 }
 
 tasks.register("syncCnaTemplateContent", Sync) {

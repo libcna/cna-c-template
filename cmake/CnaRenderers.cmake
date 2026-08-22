@@ -72,6 +72,15 @@ function(cna_template_manifest_renderers out_var)
         string(JSON _name GET "${_json}" renderers ${_i} name)
         list(APPEND _names "${_name}")
     endforeach()
+    set(_unique_names "${_names}")
+    list(REMOVE_DUPLICATES _unique_names)
+    list(LENGTH _names _name_count)
+    list(LENGTH _unique_names _unique_name_count)
+    if(NOT _name_count EQUAL _unique_name_count)
+        message(FATAL_ERROR
+            "cna-template: cmake/renderers.json contains duplicate renderer names; "
+            "run python3 tools/gen_renderer_files.py for the detailed validation error.")
+    endif()
     set(${out_var} "${_names}" PARENT_SCOPE)
 endfunction()
 
@@ -212,7 +221,7 @@ function(cna_template_validate_renderer renderer cna_root)
     list(LENGTH _canonical _count)
 
     if(NOT renderer IN_LIST _canonical)
-        # Offer the closest matches rather than dumping 46 names unsorted.
+        # Offer the closest matches rather than dumping the full list unsorted.
         set(_hint)
         foreach(_r IN LISTS _canonical)
             if(_r MATCHES "^${renderer}" OR renderer MATCHES "^${_r}")
@@ -302,7 +311,11 @@ endfunction()
 function(cna_template_assert_no_drift)
     get_property(_cached CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS)
     if(NOT _cached)
-        return()
+        message(FATAL_ERROR
+            "cna-template: CNA did not publish the CNA_GRAPHICS_RENDERER cache "
+            "choice list. The template cannot verify renderer synchronization "
+            "against this CNA shape; update cmake/CnaRenderers.cmake or return "
+            "to the revision in dependencies.lock.")
     endif()
     cna_template_manifest_renderers(_manifest)
     _cna_template_report_drift("${_cached}" "${_manifest}")

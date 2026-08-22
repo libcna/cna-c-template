@@ -3,7 +3,7 @@
 # =============================================================================
 # Everything renderer-specific in this file is driven by cmake/renderers.json
 # (see cmake/CnaRenderers.cmake). There is deliberately no per-renderer
-# if/elseif chain here: CNA has 46 renderers and keeps growing, so the template
+# if/elseif chain here: CNA's renderer set keeps growing, so the template
 # treats the renderer set as data rather than as code.
 #
 # CMake 3.23 is the floor because the easy-gl/meta-gl siblings backing the
@@ -19,7 +19,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 # --- Customization point: rename your application here -----------------------
-# Drives the executable name and the CTest name. Renaming the C++ class itself
+# Drives the executable name and the CTest name. Renaming the C game itself
 # is a separate step -- see "Making this your own project" in README.md.
 set(CNA_TEMPLATE_APP_NAME "HelloGame" CACHE STRING
     "Name of the application executable produced by this template")
@@ -36,74 +36,87 @@ message(STATUS "cna-template: platform ${CMAKE_SYSTEM_NAME}, "
                "compiler ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # -----------------------------------------------------------------------------
-# Upstream compatibility preflight
-# -----------------------------------------------------------------------------
-# CNA's module-layout validator (cna/modules/CMakeLists.txt) aborts the build if
-# a directory named src/ or include/ exists at ${CMAKE_SOURCE_DIR}. When CNA is
-# consumed with add_subdirectory(), CMAKE_SOURCE_DIR is *this* project rather
-# than CNA -- so any consumer using the conventional src/ + include/ layout dies
-# with the confusing message "legacy global 'src/' tree reappeared at the
-# repository root". That is an upstream bug; see missing.md.
-#
-# This template therefore keeps its sources under game/. The check below exists
-# so that if you add src/ or include/ back you are told why it breaks, instead
-# of being sent to go looking inside CNA.
-foreach(_cna_template_reserved IN ITEMS src include)
-    if(EXISTS "${CMAKE_SOURCE_DIR}/${_cna_template_reserved}")
-        message(FATAL_ERROR
-            "cna-template: a directory named '${_cna_template_reserved}/' at the top level of\n"
-            "this project makes CNA's module-layout validator abort the configure.\n"
-            "\n"
-            "This is an upstream CNA bug: cna/modules/CMakeLists.txt tests\n"
-            "  \${CMAKE_SOURCE_DIR}/${_cna_template_reserved}\n"
-            "which is the CONSUMER's root when CNA is added with add_subdirectory(),\n"
-            "not CNA's own root. Until it is fixed upstream, keep application sources\n"
-            "elsewhere -- this template uses game/src and game/include.\n"
-            "\n"
-            "missing.md has the one-line upstream fix.")
-    endif()
-endforeach()
-
-# -----------------------------------------------------------------------------
 # CNA framework location
 # -----------------------------------------------------------------------------
-# CNA is a sibling checkout, not a submodule, and is consumed with
-# add_subdirectory(): CNA installs and exports no CMake package, so
-# find_package(CNA) does not exist.
+# CNA is a sibling checkout, not a submodule, and is consumed from source with
+# add_subdirectory(). CNA can install a C-ABI package, but this template also
+# configures the selected renderer and framework dependencies, so an installed
+# C-API library is not an equivalent input.
 #
-# Two layouts are supported without configuration, because both are in real use:
-# the template checked out beside CNA (`../cnabinding`), and the template checked
-# out inside a `_bindings/` directory that sits beside CNA (`../../cnabinding`).
+# Two layouts are supported without configuration: CNA directly beside this
+# template (`../cna`), and this template inside a `_bindings/` directory beside
+# CNA (`../../cna`). Android and the generator use the same candidates and order.
 # The first existing candidate wins; -DCNA_ROOT_DIR overrides the search entirely.
-if(NOT DEFINED CNA_ROOT_DIR)
-    foreach(_cna_candidate
-            "${CMAKE_CURRENT_SOURCE_DIR}/../cnabinding"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../../cnabinding"
+# Keep a command-line relative override as text until it can be resolved from
+# the documented base below. Declaring it PATH here would let CMake absolutize
+# it from the invoking process's working directory first.
+set(CNA_ROOT_DIR "" CACHE STRING "Path to the CNA framework checkout")
+if(CNA_ROOT_DIR STREQUAL "")
+    foreach(_cna_candidate IN ITEMS
             "${CMAKE_CURRENT_SOURCE_DIR}/../cna"
             "${CMAKE_CURRENT_SOURCE_DIR}/../../cna")
         if(EXISTS "${_cna_candidate}/CMakeLists.txt")
             set(CNA_ROOT_DIR "${_cna_candidate}" CACHE PATH
-                "Path to the cnabinding framework checkout")
+                "Path to the CNA framework checkout" FORCE)
             break()
         endif()
     endforeach()
+else()
+    cmake_path(ABSOLUTE_PATH CNA_ROOT_DIR
+        BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" NORMALIZE
+        OUTPUT_VARIABLE _cna_root_absolute)
+    set(CNA_ROOT_DIR "${_cna_root_absolute}" CACHE PATH
+        "Path to the CNA framework checkout" FORCE)
 endif()
-set(CNA_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cnabinding" CACHE PATH
-    "Path to the cnabinding framework checkout")
 
 if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
     message(FATAL_ERROR
         "cna-c-template: CNA framework not found at '${CNA_ROOT_DIR}'.\n"
         "CNA is a separate sibling repository, not part of this template. It is\n"
-        "looked for at ../cnabinding, ../../cnabinding, ../cna and ../../cna.\n"
-        "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && git clone https://github.com/openeggbert/cnabinding.git\n"
-        "or pass -DCNA_ROOT_DIR=/path/to/cnabinding to cmake.\n"
+        "looked for at ../cna and ../../cna.\n"
+        "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && git clone https://github.com/openeggbert/cna.git\n"
+        "or pass -DCNA_ROOT_DIR=/path/to/cna to cmake. Relative overrides are\n"
+        "resolved from the template repository root.\n"
         "README.md \"Prerequisites\" lists every checkout you need.")
 endif()
 message(STATUS "cna-c-template: using CNA at ${CNA_ROOT_DIR}")
 
+# CNA-9 (module-layout half): older supported CNA revisions accidentally tested
+# the consumer's CMAKE_SOURCE_DIR for CNA's own legacy src/include directories.
+# Detect that exact implementation before reserving those otherwise-normal names.
+set(_cna_modules_cmake "${CNA_ROOT_DIR}/modules/CMakeLists.txt")
+set(_cna_has_consumer_layout_bug OFF)
+if(EXISTS "${_cna_modules_cmake}")
+    file(READ "${_cna_modules_cmake}" _cna_modules_cmake_content)
+    string(FIND "${_cna_modules_cmake_content}"
+        [=[${CMAKE_SOURCE_DIR}/${_cna_legacy}]=]
+        _cna_consumer_layout_bug_position)
+    if(NOT _cna_consumer_layout_bug_position EQUAL -1)
+        set(_cna_has_consumer_layout_bug ON)
+    endif()
+endif()
+if(_cna_has_consumer_layout_bug)
+    foreach(_cna_template_reserved IN ITEMS src include)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/${_cna_template_reserved}")
+            message(FATAL_ERROR
+                "cna-c-template: this CNA revision has CNA-9 and mistakes the consumer's\n"
+                "'${_cna_template_reserved}/' directory for CNA's legacy source tree. Keep\n"
+                "application sources under game/ or update CNA to the pinned baseline.\n"
+                "See docs/compatibility.md for the detection and upstream fix.")
+        endif()
+    endforeach()
+endif()
+
 # Enable the C API in the framework build.
 set(CNA_BUILD_C_API ON CACHE BOOL "Build the CNA C API" FORCE)
+# This application consumes CNA::CApi, the shared C ABI. CNA's optional static
+# packaging target is not part of the application and its link-line extraction
+# currently assumes Makefile-only link.txt metadata that Ninja does not emit.
+# Disable that unrelated ALL target explicitly rather than letting a successful
+# application build fail while producing an unused distribution artifact. See
+# docs/compatibility.md (CNA-CAPI-STATIC).
+set(CNA_C_API_BUILD_STATIC OFF CACHE BOOL
+    "Build CNA's optional combined static C API distribution archive" FORCE)
 
 # Draco is a pinned submodule of CNA that a plain `git clone` does not populate,
 # and CNA fails the configure outright when it is enabled but missing. Default it
@@ -132,7 +145,7 @@ endif()
 # If you set nothing, CNA picks its own (WEBGL2 on the web, OPENGLES3 on Linux,
 # SDL_RENDERER elsewhere) and the template validates the result afterwards.
 #
-# CNA also exposes 46 CNA_RENDERER_<NAME> booleans as an alternative input path.
+# CNA also exposes CNA_RENDERER_<NAME> booleans as an alternative input path.
 # They all default to OFF and CNA only consults them if one is switched ON, so
 # setting the string alone is sufficient and this file leaves them alone.
 if(DEFINED CNA_GRAPHICS_RENDERER AND NOT CNA_GRAPHICS_RENDERER STREQUAL "")
@@ -158,7 +171,7 @@ set(EASYGL_BUILD_EXAMPLES OFF CACHE BOOL "Build easy-gl examples"         FORCE)
 # unsuitable for immutable dependency checkouts and failed during the web
 # verification here. Keep the persistent, target-keyed cache in this
 # consumer's ignored build/ area unless the caller chose another location.
-# See missing.md CNA-9.
+# See docs/compatibility.md (CNA-9).
 if(NOT DEFINED CNA_SDL_PREBUILT_ROOT)
     if(EMSCRIPTEN)
         set(_cna_sdl_cache_target emscripten)
@@ -189,18 +202,28 @@ if(EXISTS "${_cna_sharp_runtime_consumption}")
     endif()
 endif()
 
-# Same upstream root cause as the src/include guard above: CNA's content module
-# adds its vendored single-header include paths as ${CMAKE_SOURCE_DIR}/third_party/...,
+# Older CNA revisions used the consumer root for vendored content headers,
+# adding their single-header include paths as ${CMAKE_SOURCE_DIR}/third_party/...,
 # which resolves into the CONSUMER's tree rather than CNA's. Building CNA as a
 # subdirectory therefore fails with "fatal error: cgltf.h: No such file or
 # directory". INCLUDE_DIRECTORIES is a directory property that subdirectories
 # inherit, so setting the correct paths here repairs the search path without
-# modifying CNA. Recorded in missing.md; remove once CNA uses its own root.
-foreach(_cna_vendored_header_dir IN ITEMS cgltf stb)
-    if(EXISTS "${CNA_ROOT_DIR}/third_party/${_cna_vendored_header_dir}")
-        include_directories("${CNA_ROOT_DIR}/third_party/${_cna_vendored_header_dir}")
+# modifying CNA. Apply the overlay only when that exact CNA-9 expression exists.
+set(_cna_content_cmake "${CNA_ROOT_DIR}/modules/content/CMakeLists.txt")
+if(EXISTS "${_cna_content_cmake}")
+    file(READ "${_cna_content_cmake}" _cna_content_cmake_content)
+    string(FIND "${_cna_content_cmake_content}"
+        [=[${CMAKE_SOURCE_DIR}/third_party/]=]
+        _cna_consumer_header_bug_position)
+    if(NOT _cna_consumer_header_bug_position EQUAL -1)
+        message(STATUS "cna-c-template: applying detected CNA-9 vendored-header compatibility")
+        foreach(_cna_vendored_header_dir IN ITEMS cgltf stb)
+            if(EXISTS "${CNA_ROOT_DIR}/third_party/${_cna_vendored_header_dir}")
+                include_directories("${CNA_ROOT_DIR}/third_party/${_cna_vendored_header_dir}")
+            endif()
+        endforeach()
     endif()
-endforeach()
+endif()
 
 add_subdirectory("${CNA_ROOT_DIR}" CNA)
 
@@ -209,7 +232,8 @@ add_subdirectory("${CNA_ROOT_DIR}" CNA)
 # The modular runtime intentionally creates that compatibility target only for
 # the expensive All selection.  Supply an equivalent bridge over CNA's narrow
 # component set so those tools remain buildable without enabling every optional
-# component (and its cross-platform dependencies).  See missing.md CNA-7.
+# component (and its cross-platform dependencies). See docs/compatibility.md
+# (CNA-7). The TARGET guard makes this inert once CNA supplies its own bridge.
 if(NOT TARGET SHARP_RUNTIME
         AND TARGET SharpRuntime::Core.Base
         AND DEFINED CNA_SHARP_RUNTIME_DEFAULT_COMPONENTS)
@@ -220,13 +244,13 @@ if(NOT TARGET SHARP_RUNTIME
     endforeach()
 endif()
 
-# The pinned CNA revision changed IGraphicsRenderer::CreateRenderTargetCube()
+# An older CNA revision changed IGraphicsRenderer::CreateRenderTargetCube()
 # from four to five parameters but missed CanvasRenderer's declaration and
-# definition.  Keep the sibling checkout read-only: derive two build-tree
+# definition. Keep the sibling checkout read-only: derive two build-tree
 # compatibility copies, verify the exact stale signatures before replacing
 # them, then compile CanvasRenderer.cpp against the corrected overlay header.
 # The strict guards make an upstream change fail visibly instead of silently
-# applying a stale textual patch.  See missing.md CNA-8.
+# applying a stale textual patch. See docs/compatibility.md (CNA-8).
 if(EMSCRIPTEN
         AND CNA_GRAPHICS_RENDERER STREQUAL "CANVAS"
         AND TARGET cna_renderer_canvas)
@@ -253,16 +277,6 @@ if(EMSCRIPTEN
             bool mipMap = false, int multiSampleCount = 0) override;]=])
     string(FIND "${_canvas_header_content}"
         "${_canvas_old_header_signature}" _canvas_header_signature_position)
-    if(_canvas_header_signature_position EQUAL -1)
-        message(FATAL_ERROR
-            "cna-template: CNA's CanvasRenderer.hpp no longer has the expected "
-            "stale CreateRenderTargetCube signature. Remove or update the CNA-8 "
-            "compatibility block instead of applying it blindly.")
-    endif()
-    string(REPLACE "${_canvas_old_header_signature}"
-        "${_canvas_new_header_signature}"
-        _canvas_header_content "${_canvas_header_content}")
-
     file(READ "${_canvas_source}" _canvas_source_content)
     set(_canvas_old_source_signature [=[
     std::unique_ptr<IRenderTargetCubeRenderer> CanvasRenderer::CreateRenderTargetCube(
@@ -272,36 +286,53 @@ if(EMSCRIPTEN
         int size, int, bool, bool, int)]=])
     string(FIND "${_canvas_source_content}"
         "${_canvas_old_source_signature}" _canvas_source_signature_position)
-    if(_canvas_source_signature_position EQUAL -1)
-        message(FATAL_ERROR
-            "cna-template: CNA's CanvasRenderer.cpp no longer has the expected "
-            "stale CreateRenderTargetCube signature. Remove or update the CNA-8 "
-            "compatibility block instead of applying it blindly.")
-    endif()
-    string(REPLACE "${_canvas_old_source_signature}"
-        "${_canvas_new_source_signature}"
-        _canvas_source_content "${_canvas_source_content}")
 
-    file(MAKE_DIRECTORY
-        "${_canvas_compat_root}"
-        "${_canvas_compat_root}/include/CNA/Internal/Renderers/Canvas")
-    file(CONFIGURE OUTPUT "${_canvas_compat_header}"
-        CONTENT "${_canvas_header_content}" @ONLY)
-    file(CONFIGURE OUTPUT "${_canvas_compat_source}"
-        CONTENT "${_canvas_source_content}" @ONLY)
-
-    get_target_property(_canvas_sources cna_renderer_canvas SOURCES)
-    list(FIND _canvas_sources "${_canvas_source}" _canvas_source_index)
-    if(_canvas_source_index EQUAL -1)
+    # A fixed CNA is a supported capability, not an error. A mixed or unknown
+    # shape is an error because an overlay could then compile only half the fix.
+    string(FIND "${_canvas_header_content}"
+        "bool preserveContents" _canvas_fixed_header_position)
+    string(FIND "${_canvas_source_content}"
+        "int size, int, bool, bool, int)" _canvas_fixed_source_position)
+    if(NOT _canvas_fixed_header_position EQUAL -1
+            AND NOT _canvas_fixed_source_position EQUAL -1)
+        message(STATUS "cna-c-template: CNA-8 is fixed upstream; Canvas overlay not needed")
+    elseif(_canvas_header_signature_position EQUAL -1
+            OR _canvas_source_signature_position EQUAL -1)
         message(FATAL_ERROR
-            "cna-template: cannot locate CanvasRenderer.cpp in "
-            "cna_renderer_canvas; refusing an incomplete CNA-8 workaround.")
+            "cna-c-template: CNA's Canvas CreateRenderTargetCube signatures are "
+            "neither the known four-parameter CNA-8 form nor the fixed five-parameter "
+            "form. Refusing a partial textual overlay; inspect ${_canvas_header} and "
+            "${_canvas_source}, then update docs/compatibility.md and this capability check.")
+    else()
+        message(STATUS "cna-c-template: applying detected CNA-8 Canvas compatibility overlay")
+        string(REPLACE "${_canvas_old_header_signature}"
+            "${_canvas_new_header_signature}"
+            _canvas_header_content "${_canvas_header_content}")
+        string(REPLACE "${_canvas_old_source_signature}"
+            "${_canvas_new_source_signature}"
+            _canvas_source_content "${_canvas_source_content}")
+
+        file(MAKE_DIRECTORY
+            "${_canvas_compat_root}"
+            "${_canvas_compat_root}/include/CNA/Internal/Renderers/Canvas")
+        file(CONFIGURE OUTPUT "${_canvas_compat_header}"
+            CONTENT "${_canvas_header_content}" @ONLY)
+        file(CONFIGURE OUTPUT "${_canvas_compat_source}"
+            CONTENT "${_canvas_source_content}" @ONLY)
+
+        get_target_property(_canvas_sources cna_renderer_canvas SOURCES)
+        list(FIND _canvas_sources "${_canvas_source}" _canvas_source_index)
+        if(_canvas_source_index EQUAL -1)
+            message(FATAL_ERROR
+                "cna-c-template: cannot locate CanvasRenderer.cpp in "
+                "cna_renderer_canvas; refusing an incomplete CNA-8 workaround.")
+        endif()
+        list(REMOVE_ITEM _canvas_sources "${_canvas_source}")
+        set_property(TARGET cna_renderer_canvas PROPERTY SOURCES
+            ${_canvas_sources} "${_canvas_compat_source}")
+        target_include_directories(cna_renderer_canvas BEFORE PRIVATE
+            "${_canvas_compat_root}/include")
     endif()
-    list(REMOVE_ITEM _canvas_sources "${_canvas_source}")
-    set_property(TARGET cna_renderer_canvas PROPERTY SOURCES
-        ${_canvas_sources} "${_canvas_compat_source}")
-    target_include_directories(cna_renderer_canvas BEFORE PRIVATE
-        "${_canvas_compat_root}/include")
 endif()
 
 # CNA has now resolved the renderer (ours or its own default) and published the
@@ -313,18 +344,6 @@ cna_template_renderer_field("${CNA_GRAPHICS_RENDERER}" display   CNA_TEMPLATE_RE
 cna_template_renderer_field("${CNA_GRAPHICS_RENDERER}" dimension CNA_TEMPLATE_RENDERER_DIMENSION)
 message(STATUS "cna-template: renderer ${CNA_GRAPHICS_RENDERER} "
                "(${CNA_TEMPLATE_RENDERER_DIMENSION}, display: ${CNA_TEMPLATE_RENDERER_DISPLAY})")
-
-# sharp-runtime's RandomAccess.cpp defines the native-only ThrowNative helper
-# on Emscripten too. The platform branches never call it there, so the module's
-# own -Werror turns Clang's -Wunused-function warning into a build failure.
-# Keep the compatibility exception on that one source file; see missing.md
-# SHARP-RUNTIME-2. Remove this once upstream guards or annotates the helper.
-if(EMSCRIPTEN AND TARGET sharp_runtime_io)
-    set_property(SOURCE
-        "${CNA_SHARP_RUNTIME_ROOT}/modules/io/src/System/IO/RandomAccess.cpp"
-        TARGET_DIRECTORY sharp_runtime_io
-        APPEND PROPERTY COMPILE_OPTIONS -Wno-error=unused-function)
-endif()
 
 # SDL's IMPORTED targets are created by find_package() inside CNA's directory
 # scope, so they are not visible up here. Re-importing is cheap and idempotent:
@@ -359,19 +378,6 @@ target_include_directories(${_app} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/game/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/game/src"
 )
-
-# CNA propagates CNA_RENDERER_<X> to consumers through its cna_build_flags
-# INTERFACE, but applies CNA_GL_PROFILE_<X> with a directory-scoped
-# add_compile_definitions() that never reaches a parent-scope consumer. The five
-# GL renderers all share the define CNA_RENDERER_EASYGL, so without the profile
-# CNA::getCurrentGraphicsRendererName() falls through to its OPENGLES3 default
-# and misreports OPENGLES2/OPENGL33/WEBGL1/WEBGL2 in *our* translation units
-# while CNA's own report the truth. Re-applying it here restores agreement.
-# Upstream fix recorded in missing.md.
-cna_template_renderer_field("${CNA_GRAPHICS_RENDERER}" category _renderer_category)
-if(_renderer_category STREQUAL "gl-easygl")
-    target_compile_definitions(${_app} PRIVATE "CNA_GL_PROFILE_${CNA_GRAPHICS_RENDERER}")
-endif()
 
 # CNA is an INTERFACE umbrella already carrying every framework module, the
 # selected renderer target, the required Sharp Runtime component targets, the
@@ -477,6 +483,8 @@ option(CNA_TEMPLATE_BUILD_TESTS "Register cna-template's own smoke test" ON)
 if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CROSSCOMPILING)
     enable_testing()
     add_test(NAME ${CNA_TEMPLATE_APP_NAME}Smoke COMMAND ${_app} --smoke-test)
+    add_test(NAME ${CNA_TEMPLATE_APP_NAME}FailurePropagation
+        COMMAND ${_app} --smoke-test --simulate-draw-failure)
 
     # Label the test by what it needs from the environment, so CI can run the
     # display-free renderers with no X server at all and reserve xvfb-run for
@@ -492,4 +500,13 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
     set_tests_properties(${CNA_TEMPLATE_APP_NAME}Smoke PROPERTIES
         TIMEOUT 30
         LABELS "${_labels}")
+    set_tests_properties(${CNA_TEMPLATE_APP_NAME}FailurePropagation PROPERTIES
+        TIMEOUT 30
+        LABELS "${_labels};failure-propagation"
+        WILL_FAIL TRUE)
+elseif(CNA_TEMPLATE_BUILD_TESTS)
+    message(STATUS
+        "cna-c-template: smoke tests are not registered for this target "
+        "(ANDROID=${ANDROID}, EMSCRIPTEN=${EMSCRIPTEN}, "
+        "CMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING})")
 endif()

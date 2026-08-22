@@ -26,7 +26,7 @@
     "  display     'window' = needs a real or virtual display to RUN, 'none' = runs",
     "              with no display at all (usable as-is in CI).",
     "  dependency  What it needs beyond CNA + SDL3 + sharp-runtime.",
-    "  tier        cna-template CI tier: 'B' = every PR, 'C' = broad matrix,",
+    "  tier        cna-template CI policy: 'B' = baseline selection, 'C' = broad-matrix candidate,",
     "              'D' = scheduled/manual only, 'X' = not runnable on GitHub runners.",
     "  preset      Whether a named convenience preset is generated for it.",
     "  webflags    Extra Emscripten link options this renderer needs (web only).",
@@ -408,6 +408,22 @@
       "tier": "C",
       "preset": false,
       "notes": "OpenVG 1.1 vector graphics on a fixed-function desktop GL context."
+    },
+    {
+      "name": "NANOVG",
+      "category": "raster-2d",
+      "dimension": "2d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "NanoVG via FetchContent + system OpenGL",
+      "tier": "D",
+      "preset": false,
+      "notes": "NanoVG vector graphics through its GL2 backend. Requires a desktop OpenGL 2.0+ context with an 8-bit stencil plane."
     },
     {
       "name": "CANVAS",

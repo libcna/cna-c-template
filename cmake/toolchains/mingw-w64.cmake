@@ -1,13 +1,21 @@
 set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_SYSTEM_PROCESSOR x86_64)
-
 set(MINGW_TRIPLET "x86_64-w64-mingw32" CACHE STRING "MinGW-w64 target triplet")
 
-message(STATUS "cna-template: Loading MinGW-w64 toolchain (${MINGW_TRIPLET})")
+if(NOT MINGW_TRIPLET MATCHES "^([^-]+)-.+-mingw32$")
+    message(FATAL_ERROR
+        "Invalid MINGW_TRIPLET='${MINGW_TRIPLET}'. Expected a complete MinGW-w64 "
+        "triplet such as x86_64-w64-mingw32, i686-w64-mingw32 or "
+        "aarch64-w64-mingw32.")
+endif()
+set(CMAKE_SYSTEM_PROCESSOR "${CMAKE_MATCH_1}")
 
-find_program(MINGW_C_COMPILER NAMES ${MINGW_TRIPLET}-gcc)
-find_program(MINGW_CXX_COMPILER NAMES ${MINGW_TRIPLET}-g++)
-find_program(MINGW_RC_COMPILER NAMES ${MINGW_TRIPLET}-windres)
+message(STATUS
+    "cna-template: Loading MinGW-w64 toolchain (${MINGW_TRIPLET}, "
+    "processor ${CMAKE_SYSTEM_PROCESSOR})")
+
+find_program(MINGW_C_COMPILER NAMES "${MINGW_TRIPLET}-gcc")
+find_program(MINGW_CXX_COMPILER NAMES "${MINGW_TRIPLET}-g++")
+find_program(MINGW_RC_COMPILER NAMES "${MINGW_TRIPLET}-windres")
 
 if(NOT MINGW_C_COMPILER)
     message(FATAL_ERROR "Could not find MinGW-w64 C compiler (${MINGW_TRIPLET}-gcc). Please install the mingw-w64 package or set MINGW_C_COMPILER.")
@@ -15,6 +23,10 @@ endif()
 
 if(NOT MINGW_CXX_COMPILER)
     message(FATAL_ERROR "Could not find MinGW-w64 C++ compiler (${MINGW_TRIPLET}-g++). Please install the mingw-w64 package or set MINGW_CXX_COMPILER.")
+endif()
+
+if(NOT MINGW_RC_COMPILER)
+    message(FATAL_ERROR "Could not find MinGW-w64 resource compiler (${MINGW_TRIPLET}-windres). Please install the mingw-w64 binutils package or set MINGW_RC_COMPILER.")
 endif()
 
 set(CMAKE_C_COMPILER "${MINGW_C_COMPILER}")

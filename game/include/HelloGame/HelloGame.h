@@ -19,14 +19,16 @@ bool HelloGame_Check(CNA_Result result, const char* what);
 /**
  * @brief Creates the HelloGame instance.
  * @param smokeTest If true, the game will exit after a few frames.
+ * @param simulateDrawFailure If true, the first draw injects a failed CNA call for regression testing.
  * @return A handle to the created game, or CNA_INVALID_HANDLE when creation was refused.
  */
-CNA_Handle HelloGame_Create(bool smokeTest);
+CNA_Handle HelloGame_Create(bool smokeTest, bool simulateDrawFailure);
 
 /**
  * @brief Destroys the HelloGame instance.
  * @param game The game handle to destroy.
+ * @return The first resource-release or game-destruction failure, if any.
  */
-void HelloGame_Destroy(CNA_Handle game);
+CNA_Result HelloGame_Destroy(CNA_Handle game);
 
 #endif

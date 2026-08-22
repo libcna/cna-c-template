@@ -1,0 +1,69 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-headless-and-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out template
+        uses: actions/checkout@v4
+
+      - name: Read authoritative dependency pins
+        id: pins
+        run: |
+          echo "cna=$(python3 tools/dependency_pins.py --revision CNA)" >> "$GITHUB_OUTPUT"
+          echo "sharp_runtime=$(python3 tools/dependency_pins.py --revision SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out pinned CNA
+        uses: actions/checkout@v4
+        with:
+          repository: openeggbert/cna
+          ref: ${{ steps.pins.outputs.cna }}
+          path: _dependencies/cna
+          submodules: true
+
+      - name: Check out pinned sharp-runtime
+        uses: actions/checkout@v4
+        with:
+          repository: openeggbert/sharp-runtime
+          ref: ${{ steps.pins.outputs.sharp_runtime }}
+          path: _dependencies/sharp-runtime
+
+      - name: Verify pins and generated renderer data
+        run: |
+          python3 tools/dependency_pins.py --dependencies-dir _dependencies --check CNA SHARP_RUNTIME
+          python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py
+          python3 tools/gen_renderer_files.py --check --cna-root _dependencies/cna
+
+      - name: Run repository regression tests
+        run: python3 -m unittest discover -s test -v
+
+      - name: Validate CMake preset files
+        run: |
+          cmake --list-presets
+          cmake --list-presets=build
+          cmake --list-presets=test
+
+      - name: Build pinned HEADLESS baseline
+        run: |
+          cmake -S . -B build-ci-headless -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCNA_GRAPHICS_RENDERER=HEADLESS \
+            -DCNA_ROOT_DIR="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -DCNA_SHARP_RUNTIME_ROOT="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            -DCNA_ENABLE_DRACO=OFF
+          cmake --build build-ci-headless --parallel 3
+
+      - name: Run both meaningful smoke tests
+        run: |
+          ctest --test-dir build-ci-headless -N
+          ctest --test-dir build-ci-headless --output-on-failure
+
+      - name: Ensure checks did not rewrite tracked files
+        run: git diff --exit-code

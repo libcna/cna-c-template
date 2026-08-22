@@ -300,6 +300,11 @@
       "binaryDir": "${sourceDir}/build-windows-directx11",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "DIRECTX11"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
       }
     },
     {
@@ -310,6 +315,11 @@
       "binaryDir": "${sourceDir}/build-windows-directx12",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "DIRECTX12"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
       }
     }
   ],
@@ -364,7 +374,12 @@
     },
     {
       "name": "metal",
-      "configurePreset": "metal"
+      "configurePreset": "metal",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
     },
     {
       "name": "headless",
@@ -416,11 +431,21 @@
     },
     {
       "name": "windows-directx11",
-      "configurePreset": "windows-directx11"
+      "configurePreset": "windows-directx11",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     },
     {
       "name": "windows-directx12",
-      "configurePreset": "windows-directx12"
+      "configurePreset": "windows-directx12",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
     }
   ],
   "testPresets": [
@@ -554,6 +579,11 @@
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
       }
     },
     {
@@ -655,30 +685,6 @@
     {
       "name": "freedirect",
       "configurePreset": "freedirect",
-      "output": {
-        "outputOnFailure": true
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      }
-    },
-    {
-      "name": "windows-directx11",
-      "configurePreset": "windows-directx11",
-      "output": {
-        "outputOnFailure": true
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      }
-    },
-    {
-      "name": "windows-directx12",
-      "configurePreset": "windows-directx12",
       "output": {
         "outputOnFailure": true
       },

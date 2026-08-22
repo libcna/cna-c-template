@@ -32,4 +32,5 @@ key.properties
 .DS_Store
 __pycache__/
 *.pyc
+_dependencies/
 .claude/*

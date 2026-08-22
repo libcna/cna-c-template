@@ -10,7 +10,7 @@ import org.libsdl.app.SDLActivity;
  *   - The SDL3 Java glue (SDLActivity) handles all lifecycle, surface, input,
  *     and audio initialisation automatically.
  *
- * Native code lives in libmain.so (built from src/*.cpp via CMake, see the
+ * Native code lives in libmain.so (built from game/src/*.c via CMake, see the
  * root CMakeLists.txt's ANDROID branch). SDL3 discovers it by looking for a
  * library named "main".
  *
