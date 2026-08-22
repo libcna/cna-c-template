@@ -105,10 +105,14 @@ class CTestContractTests(unittest.TestCase):
         self.assertIn('-DCNA_TEMPLATE_APP_NAME="$CNA_TEMPLATE_CI_APP_NAME"', workflow)
         self.assertNotIn("./HelloGame", workflow)
 
-    def test_ci_installs_the_headers_required_by_pinned_cna_sdl(self):
+    def test_ci_installs_the_linux_headers_required_by_pinned_cna(self):
         workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
         headless_job = workflow.split("  android-gradle-configuration:", 1)[0]
         for package in (
+            "libavcodec-dev",
+            "libavformat-dev",
+            "libavutil-dev",
+            "libswresample-dev",
             "libx11-dev",
             "libxcursor-dev",
             "libxext-dev",

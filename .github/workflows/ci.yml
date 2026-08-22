@@ -85,10 +85,14 @@ jobs:
           cmake --list-presets=build
           cmake --list-presets=test
 
-      - name: Install pinned CNA's required Linux SDL headers
+      - name: Install pinned CNA's required Linux headers
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswresample-dev \
             libx11-dev \
             libxcursor-dev \
             libxext-dev \
