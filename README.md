@@ -252,9 +252,11 @@ ctest --test-dir build-headless -C Debug --output-on-failure
 git diff --check
 ```
 
-`--config` is optional for a single-config build tree and required for a multi-config tree; the
-verifier refuses to guess. When invoking CTest by build directory instead of through a generated
-test preset, pass the same configuration with `ctest -C Debug`.
+`--config` is required for a multi-config tree; the verifier refuses to guess. It is optional for
+a single-config tree, but when supplied it must exactly match the tree's non-empty
+`CMAKE_BUILD_TYPE`. If `CMAKE_BUILD_TYPE` is empty, omit `--config` because the verifier cannot
+truthfully associate that tree with a named configuration. When invoking CTest by build directory
+instead of through a generated test preset, pass the same configuration with `ctest -C Debug`.
 
 ## License
 

@@ -551,33 +551,12 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
     # These are stable infrastructure identities. They deliberately do not
     # inherit the customizable executable name, so documented application
     # renaming cannot silently invalidate CI's required test contract.
-    set(_smoke_test CnaCTemplateSmoke)
-    set(_failure_test CnaCTemplateFailurePropagation)
-    add_test(NAME ${_smoke_test} COMMAND ${_app} --smoke-test)
-    add_test(NAME ${_failure_test}
-        COMMAND ${CMAKE_COMMAND}
-            "-DTEST_EXECUTABLE=$<TARGET_FILE:${_app}>"
-            "-DTEST_WORKING_DIRECTORY=$<TARGET_FILE_DIR:${_app}>"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFailurePropagation.cmake")
-
-    # Label the test by what it needs from the environment, so CI can run the
-    # display-free renderers with no X server at all and reserve xvfb-run for
-    # the ones that genuinely open a window:
-    #   ctest -L headless               # no display required
-    #   xvfb-run -a ctest -L display
-    if(CNA_TEMPLATE_RENDERER_DISPLAY STREQUAL "none")
-        set(_labels headless)
-    else()
-        set(_labels display)
-    endif()
-
-    set_tests_properties(${_smoke_test} PROPERTIES
-        WORKING_DIRECTORY "$<TARGET_FILE_DIR:${_app}>"
-        TIMEOUT 30
-        LABELS "${_labels}")
-    set_tests_properties(${_failure_test} PROPERTIES
-        TIMEOUT 30
-        LABELS "${_labels};failure-propagation")
+    # The shared helper also powers the lightweight multi-config fixture, so
+    # production runtime-directory and failure wiring cannot drift untested.
+    include(CnaTemplateTests)
+    cna_template_register_tests(
+        APPLICATION_TARGET "${_app}"
+        DISPLAY_CLASSIFICATION "${CNA_TEMPLATE_RENDERER_DISPLAY}")
 elseif(CNA_TEMPLATE_BUILD_TESTS)
     message(STATUS
         "cna-c-template: smoke tests are not registered for this target "

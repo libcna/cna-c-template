@@ -181,6 +181,26 @@ class CTestContractTests(unittest.TestCase):
                 "Debug",
                 self.verifier.resolve_ctest_configuration(test_dir, "Debug"),
             )
+            for invalid in ("Release", "DefinitelyWrong"):
+                with self.subTest(config=invalid):
+                    with self.assertRaisesRegex(
+                        ValueError, "does not match single-config build tree"
+                    ):
+                        self.verifier.resolve_ctest_configuration(test_dir, invalid)
+
+    def test_single_config_tree_with_empty_build_type_rejects_config_argument(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            test_dir = Path(temporary)
+            (test_dir / "CMakeCache.txt").write_text(
+                "CMAKE_GENERATOR:INTERNAL=Ninja\n"
+                "CMAKE_BUILD_TYPE:STRING=\n",
+                encoding="utf-8",
+            )
+            self.assertIsNone(
+                self.verifier.resolve_ctest_configuration(test_dir, None)
+            )
+            with self.assertRaisesRegex(ValueError, "CMAKE_BUILD_TYPE is empty"):
+                self.verifier.resolve_ctest_configuration(test_dir, "Debug")
 
     def test_configured_application_name_comes_from_cmake_cache(self):
         with tempfile.TemporaryDirectory() as temporary:

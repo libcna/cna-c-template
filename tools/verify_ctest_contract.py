@@ -88,17 +88,32 @@ def resolve_ctest_configuration(
         for configuration in cache.get("CMAKE_CONFIGURATION_TYPES", "").split(";")
         if configuration
     )
-    if not available:
+    if available:
+        if requested is None:
+            raise ValueError(
+                f"build tree uses multi-config generator {generator!r}; pass --config "
+                f"<name> (available: {', '.join(available)})"
+            )
+        if requested not in available:
+            raise ValueError(
+                f"configuration {requested!r} is not available in multi-config build "
+                f"tree {test_dir} (available: {', '.join(available)})"
+            )
         return requested
+
     if requested is None:
+        return None
+
+    build_type = cache.get("CMAKE_BUILD_TYPE", "")
+    if not build_type:
         raise ValueError(
-            f"build tree uses multi-config generator {generator!r}; pass --config "
-            f"<name> (available: {', '.join(available)})"
+            f"configuration {requested!r} cannot be validated for single-config "
+            f"build tree {test_dir} because CMAKE_BUILD_TYPE is empty; omit --config"
         )
-    if requested not in available:
+    if requested != build_type:
         raise ValueError(
-            f"configuration {requested!r} is not available in multi-config build "
-            f"tree {test_dir} (available: {', '.join(available)})"
+            f"configuration {requested!r} does not match single-config build tree "
+            f"{test_dir} (CMAKE_BUILD_TYPE={build_type!r})"
         )
     return requested
 
@@ -251,8 +266,8 @@ def main() -> int:
     parser.add_argument(
         "--config",
         help=(
-            "CTest configuration to inspect (required for multi-config build trees, "
-            "for example Debug)"
+            "CTest configuration to inspect (required for multi-config build trees; "
+            "for single-config trees it must match a non-empty CMAKE_BUILD_TYPE)"
         ),
     )
     parser.add_argument(
