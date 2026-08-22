@@ -59,6 +59,7 @@ if (!missingDependencyPins.isEmpty() || !unknownDependencyPins.isEmpty()) {
     )
 }
 def cnaPin = dependencyPins["CNA"]
+def sharpRuntimePin = dependencyPins["SHARP_RUNTIME"]
 
 // Use the same dependency layout and order as root CMake and the renderer generator.
 // Relative -PcnaRootDir overrides are deliberately resolved from the template root,
@@ -74,7 +75,7 @@ def cnaRootDir = cnaRootOverride != null
 def cnaSharpRuntimeRootOverride = providers.gradleProperty("cnaSharpRuntimeRootDir").getOrNull()
 def cnaSharpRuntimeRootDir = cnaSharpRuntimeRootOverride != null
         ? resolveFromTemplateRoot(cnaSharpRuntimeRootOverride)
-        : null
+        : new File(cnaRootDir.parentFile, sharpRuntimePin.directory).canonicalFile
 def cnaAllowUnpinnedText = providers.gradleProperty("cnaAllowUnpinned").getOrElse("false")
 if (!(cnaAllowUnpinnedText ==~ /(?i:true|false)/)) {
     throw new GradleException(
@@ -82,16 +83,29 @@ if (!(cnaAllowUnpinnedText ==~ /(?i:true|false)/)) {
     )
 }
 def cnaAllowUnpinned = cnaAllowUnpinnedText.toBoolean()
+def cnaRenderer = providers.gradleProperty("cnaRenderer").getOrElse("")
 
-if (!new File(cnaRootDir, ".git").exists()) {
-    logger.warn(
-        "cna-c-template: CNA at ${cnaRootDir} has no .git metadata; expected revision " +
-        "${cnaPin.revision} cannot be verified. This is an unverified source archive."
-    )
-} else {
+def verifyPinnedCheckout = { String dependencyName, File rootDir ->
+    def pin = dependencyPins[dependencyName]
+    if (!new File(rootDir, "CMakeLists.txt").isFile()) {
+        throw new GradleException(
+            "cna-c-template: ${dependencyName} was not found at ${rootDir}. " +
+            "Expected the ${pin.repository} checkout recorded in dependencies.lock."
+        )
+    }
+
+    if (!new File(rootDir, ".git").exists()) {
+        logger.warn(
+            "cna-c-template: ${dependencyName} at ${rootDir} has no .git metadata; " +
+            "expected revision ${pin.revision} cannot be verified. " +
+            "This is an unverified source archive."
+        )
+        return
+    }
+
     def runGit = { List<String> arguments ->
         try {
-            def command = ["git", "-C", cnaRootDir.absolutePath] + arguments
+            def command = ["git", "-C", rootDir.absolutePath] + arguments
             def process = new ProcessBuilder(command).redirectErrorStream(true).start()
             def output = process.inputStream.getText("UTF-8").trim()
             def status = process.waitFor()
@@ -103,56 +117,77 @@ if (!new File(cnaRootDir, ".git").exists()) {
     def head = runGit(["rev-parse", "HEAD"])
     if (!head.available) {
         logger.warn(
-            "cna-c-template: Git is unavailable, so CNA at ${cnaRootDir} cannot be " +
-            "compared with expected revision ${cnaPin.revision}."
+            "cna-c-template: Git is unavailable, so ${dependencyName} at ${rootDir} " +
+            "cannot be compared with expected revision ${pin.revision}."
         )
-    } else {
-        if (head.status != 0) {
-            throw new GradleException(
-                "Git metadata exists at ${cnaRootDir}, but HEAD could not be read: ${head.output}"
-            )
-        }
-        def status = runGit(["status", "--porcelain", "--untracked-files=normal"])
-        if (!status.available || status.status != 0) {
-            throw new GradleException(
-                "Git status failed for CNA at ${cnaRootDir}: ${status.output}"
-            )
-        }
-        def drift = []
-        if (head.output != cnaPin.revision) {
-            drift.add("revision is ${head.output}, expected ${cnaPin.revision}")
-        }
-        if (!status.output.isEmpty()) {
-            drift.add("worktree has local changes")
-        }
-        if (!drift.isEmpty()) {
-            def detail = drift.join("; ")
-            if (cnaAllowUnpinned) {
-                logger.warn(
-                    "cna-c-template: intentional unpinned CNA compatibility test at " +
-                    "${cnaRootDir}: ${detail}."
-                )
-            } else {
-                throw new GradleException(
-                    "CNA checkout drift at ${cnaRootDir}: ${detail}. Use the " +
-                    "${cnaPin.repository} checkout recorded in dependencies.lock, or " +
-                    "explicitly acknowledge a compatibility test with " +
-                    "-PcnaAllowUnpinned=true."
-                )
-            }
-        } else {
-            logger.lifecycle(
-                "cna-c-template: CNA matches dependencies.lock (${cnaPin.revision})"
-            )
-        }
+        return
     }
+
+    if (head.status != 0) {
+        throw new GradleException(
+            "Git metadata exists at ${rootDir}, but HEAD could not be read: ${head.output}"
+        )
+    }
+    def status = runGit(["status", "--porcelain", "--untracked-files=normal"])
+    if (!status.available || status.status != 0) {
+        throw new GradleException(
+            "Git status failed for ${dependencyName} at ${rootDir}: ${status.output}"
+        )
+    }
+    def drift = []
+    if (head.output != pin.revision) {
+        drift.add("revision is ${head.output}, expected ${pin.revision}")
+    }
+    if (!status.output.isEmpty()) {
+        drift.add("worktree has local changes")
+    }
+    if (!drift.isEmpty()) {
+        def detail = drift.join("; ")
+        if (cnaAllowUnpinned) {
+            logger.warn(
+                "cna-c-template: intentional unpinned ${dependencyName} compatibility " +
+                "test at ${rootDir}: ${detail}."
+            )
+        } else {
+            throw new GradleException(
+                "${dependencyName} checkout drift at ${rootDir}: ${detail}. Use the " +
+                "${pin.repository} checkout recorded in dependencies.lock, or " +
+                "explicitly acknowledge a compatibility test with " +
+                "-PcnaAllowUnpinned=true."
+            )
+        }
+    } else {
+        logger.lifecycle(
+            "cna-c-template: ${dependencyName} matches dependencies.lock (${pin.revision})"
+        )
+    }
+}
+
+verifyPinnedCheckout("CNA", cnaRootDir)
+verifyPinnedCheckout("SHARP_RUNTIME", cnaSharpRuntimeRootDir)
+
+// A Gradle help/configuration invocation does not enter CMake. When a renderer
+// is explicitly selected, verify its direct sibling checkouts here as well;
+// root CMake independently verifies the targets actually consumed, including
+// CNA's platform default when no -PcnaRenderer value was supplied.
+def rendererDependencyNames = []
+if (cnaRenderer in ["OPENGLES2", "OPENGLES3", "OPENGL33", "WEBGL1", "WEBGL2"]) {
+    rendererDependencyNames.addAll(["EASY_GL", "META_GL"])
+} else if (cnaRenderer == "FREEDIRECT") {
+    rendererDependencyNames.add("FREE_DIRECT")
+}
+rendererDependencyNames.each { dependencyName ->
+    def pin = dependencyPins[dependencyName]
+    verifyPinnedCheckout(
+        dependencyName,
+        new File(cnaRootDir.parentFile, pin.directory).canonicalFile
+    )
 }
 
 // Override with -PcnaRenderer=OPENGLES3 to pick a renderer other than CNA's own
 // Android default (SDL_RENDERER). Not every renderer is Android-capable -- see
 // docs/renderers.md -- and the ones that need ../easy-gl + ../meta-gl need those
 // siblings present regardless of how this is built.
-def cnaRenderer = providers.gradleProperty("cnaRenderer").getOrElse("")
 def cnaSdlJavaDir = new File(cnaRootDir, "third_party/SDL/android-project/app/src/main/java")
 if (!cnaSdlJavaDir.isDirectory()) {
     throw new GradleException(
@@ -193,11 +228,9 @@ android {
                         "-DANDROID_PLATFORM=android-21",
                         "-DANDROID_STL=c++_static",
                         "-DCNA_ROOT_DIR=${cnaRootDir}",
+                        "-DCNA_SHARP_RUNTIME_ROOT=${cnaSharpRuntimeRootDir}",
                         "-DCNA_ALLOW_UNPINNED=${cnaAllowUnpinned ? 'ON' : 'OFF'}"
                 ]
-                if (cnaSharpRuntimeRootDir != null) {
-                    cmakeArgs.add("-DCNA_SHARP_RUNTIME_ROOT=${cnaSharpRuntimeRootDir}")
-                }
                 if (!cnaRenderer.isEmpty()) {
                     cmakeArgs.add("-DCNA_GRAPHICS_RENDERER=${cnaRenderer}")
                 }

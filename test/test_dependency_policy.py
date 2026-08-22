@@ -34,8 +34,10 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         return result.stdout.strip()
 
-    def create_checkout(self, root: Path) -> tuple[Path, str]:
-        checkout = root / "cna"
+    def create_checkout(
+        self, root: Path, directory: str = "cna"
+    ) -> tuple[Path, str]:
+        checkout = root / directory
         checkout.mkdir()
         self.git(checkout, "init", "--quiet")
         self.git(checkout, "config", "user.name", "cna-c-template test")
@@ -48,20 +50,34 @@ class DependencyPolicyTests(unittest.TestCase):
         self.git(checkout, "commit", "--quiet", "-m", "fixture")
         return checkout, self.git(checkout, "rev-parse", "HEAD")
 
-    def write_lock(self, root: Path, revision: str) -> Path:
+    def write_lock(
+        self,
+        root: Path,
+        revision: str,
+        dependency: str = "CNA",
+        directory: str = "cna",
+    ) -> Path:
         lock = root / "dependencies.lock"
-        lock.write_text(f"CNA|example/cna|cna|{revision}\n")
+        lock.write_text(
+            f"{dependency}|example/{directory}|{directory}|{revision}\n"
+        )
         return lock
 
     def run_cmake_policy(
-        self, root: Path, checkout: Path, lock: Path, allow_unpinned: bool
+        self,
+        root: Path,
+        checkout: Path,
+        lock: Path,
+        allow_unpinned: bool,
+        dependency: str = "CNA",
     ) -> subprocess.CompletedProcess[str]:
         script = root / ("allow.cmake" if allow_unpinned else "strict.cmake")
         script.write_text(
             f'set(CNA_TEMPLATE_TEST_DEPENDENCY_LOCK "{lock}")\n'
             f'include("{PIN_MODULE}")\n'
             "cna_template_verify_dependency_checkout("
-            f'CNA "{checkout}" {"TRUE" if allow_unpinned else "FALSE"})\n'
+            f'{dependency} "{checkout}" '
+            f'{"TRUE" if allow_unpinned else "FALSE"})\n'
         )
         return subprocess.run(
             ["cmake", "-P", str(script)],
@@ -132,6 +148,52 @@ class DependencyPolicyTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertIn("has no .git metadata", result.stdout + result.stderr)
             self.assertIn("verified pinned checkout", result.stdout + result.stderr)
+
+    def test_cmake_policy_is_applied_to_sharp_runtime_not_only_cna(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            checkout, revision = self.create_checkout(root, "sharp-runtime")
+            lock = self.write_lock(root, revision, "SHARP_RUNTIME", "sharp-runtime")
+            accepted = self.run_cmake_policy(
+                root, checkout, lock, False, "SHARP_RUNTIME"
+            )
+            self.assertEqual(
+                0, accepted.returncode, accepted.stdout + accepted.stderr
+            )
+            self.assertIn(
+                "SHARP_RUNTIME matches dependencies.lock",
+                accepted.stdout + accepted.stderr,
+            )
+
+            (checkout / "drift.txt").write_text("drift\n")
+            rejected = self.run_cmake_policy(
+                root, checkout, lock, False, "SHARP_RUNTIME"
+            )
+            self.assertNotEqual(0, rejected.returncode)
+            self.assertIn(
+                "SHARP_RUNTIME checkout drift", rejected.stdout + rejected.stderr
+            )
+
+    def test_ordinary_build_wires_all_direct_consumed_pins(self):
+        cmake = (REPO / "CMakeLists.txt").read_text()
+        gradle = (REPO / "android" / "app" / "build.gradle").read_text()
+        self.assertIn('SHARP_RUNTIME "${CNA_SHARP_RUNTIME_ROOT}"', cmake)
+        for dependency, target in (
+            ("EASY_GL", "easy-gl"),
+            ("META_GL", "meta-gl"),
+            ("FREE_DIRECT", "free-direct"),
+        ):
+            self.assertIn(
+                f"{dependency} {target} \"${{CNA_ALLOW_UNPINNED}}\"", cmake
+            )
+        self.assertIn(
+            'verifyPinnedCheckout("SHARP_RUNTIME", cnaSharpRuntimeRootDir)',
+            gradle,
+        )
+        self.assertIn(
+            'rendererDependencyNames.addAll(["EASY_GL", "META_GL"])', gradle
+        )
+        self.assertIn('rendererDependencyNames.add("FREE_DIRECT")', gradle)
 
 
 if __name__ == "__main__":

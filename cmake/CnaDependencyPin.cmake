@@ -140,3 +140,24 @@ function(cna_template_verify_dependency_checkout dependency root allow_unpinned)
             "(${_expected_revision})")
     endif()
 endfunction()
+
+function(cna_template_verify_dependency_target dependency target allow_unpinned)
+    if(NOT TARGET "${target}")
+        return()
+    endif()
+
+    get_target_property(_dependency_source_dir "${target}" SOURCE_DIR)
+    if(NOT _dependency_source_dir
+            OR _dependency_source_dir MATCHES "-NOTFOUND$")
+        message(FATAL_ERROR
+            "cna-c-template: cannot determine the source checkout backing "
+            "target '${target}' for ${dependency} pin verification.")
+    endif()
+
+    file(REAL_PATH "${_dependency_source_dir}" _dependency_source_real)
+    message(STATUS
+        "cna-c-template: ${target} consumes ${dependency} at "
+        "${_dependency_source_real}")
+    cna_template_verify_dependency_checkout(
+        "${dependency}" "${_dependency_source_real}" "${allow_unpinned}")
+endfunction()

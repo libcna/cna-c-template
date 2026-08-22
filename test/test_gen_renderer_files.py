@@ -42,6 +42,14 @@ class RendererGeneratorTests(unittest.TestCase):
         self.assertNotIn("Cross-checked against CNA", document)
         self.assertNotIn(str(REPO.parent), document)
 
+    def test_generated_document_uses_c_api_and_ci_policy_terms(self):
+        document = self.generator.build_doc(self.renderers)
+        self.assertIn("`cna_graphics_device_supports_capability(...)`", document)
+        self.assertIn("`CNA_RESULT_NOT_SUPPORTED`", document)
+        self.assertIn("| Dependency | CI tier | Notes |", document)
+        self.assertNotIn("GraphicsDevice::SupportsCapability", document)
+        self.assertNotIn("| Dependency | Tested | Notes |", document)
+
     def test_manifest_validation_rejects_malformed_platform_data(self):
         malformed = [dict(self.renderers[0])]
         malformed[0]["platforms"] = [{"not": "a platform"}]

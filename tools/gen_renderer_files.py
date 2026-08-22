@@ -497,9 +497,12 @@ def build_doc(renderers: list[dict]) -> str:
     add("")
     add(
         "**Scope** is `2D` or `2D+3D`. On a 2D-only renderer the 3D calls "
-        "(`VertexBuffer`, `DrawUserPrimitives`, depth state) throw. Query "
-        "`GraphicsDevice::SupportsCapability()` at runtime rather than testing the "
-        "renderer's name."
+        "(for example `cna_vertex_buffer_create(...)`, "
+        "`cna_graphics_device_draw_user_primitives(...)`, and depth/stencil operations) "
+        "return `CNA_RESULT_NOT_SUPPORTED`. Query "
+        "`cna_graphics_device_supports_capability(...)` with "
+        "`CNA_GRAPHICS_CAPABILITY_THREE_D` or the narrower capability at runtime "
+        "rather than testing the renderer's name."
     )
     add("")
     add(
@@ -519,7 +522,7 @@ def build_doc(renderers: list[dict]) -> str:
             continue
         add(f"## {title}")
         add("")
-        add("| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |")
+        add("| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |")
         add("| --- | --- | --- | --- | --- | --- | --- |")
         for renderer in group:
             platforms = ", ".join(PLATFORM_TITLES[p] for p in renderer["platforms"])
@@ -530,11 +533,11 @@ def build_doc(renderers: list[dict]) -> str:
                 ) + " experimental)"
             scope = "2D+3D" if renderer["dimension"] == "2d3d" else "2D"
             display = "window" if renderer["display"] == "window" else "**none**"
-            tested = TIER_TEXT.get(renderer["tier"], renderer["tier"])
+            tier_text = TIER_TEXT.get(renderer["tier"], renderer["tier"])
             preset = f"`{slug(renderer['name'])}`" if renderer.get("preset") else "—"
             add(
                 f"| `{renderer['name']}` | {platforms} | {scope} | {display} | "
-                f"{renderer['dependency']} | {tested} | {renderer['notes']} |"
+                f"{renderer['dependency']} | {tier_text} | {renderer['notes']} |"
             )
             del preset
         add("")

@@ -17,20 +17,20 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 **Display** says whether the renderer opens a window. Renderers marked **none** (`HEADLESS`, `SOFTWARE`, `STUB`, `PORTABLEGL`, `TINYGL`) need no X server, no GPU and no video driver, which makes them the right choice for CI and servers. Note that `SOFTWARE` and `PORTABLEGL` genuinely rasterize but present nowhere.
 
-**Scope** is `2D` or `2D+3D`. On a 2D-only renderer the 3D calls (`VertexBuffer`, `DrawUserPrimitives`, depth state) throw. Query `GraphicsDevice::SupportsCapability()` at runtime rather than testing the renderer's name.
+**Scope** is `2D` or `2D+3D`. On a 2D-only renderer the 3D calls (for example `cna_vertex_buffer_create(...)`, `cna_graphics_device_draw_user_primitives(...)`, and depth/stencil operations) return `CNA_RESULT_NOT_SUPPORTED`. Query `cna_graphics_device_supports_capability(...)` with `CNA_GRAPHICS_CAPABILITY_THREE_D` or the narrower capability at runtime rather than testing the renderer's name.
 
 **CI tier** is scheduling metadata for this template, not evidence of CNA support or a claim that every renderer was run in the current checkout: *baseline selection*, *broad-matrix candidate*, *on demand*, or *not on CI runners*.
 
 ## SDL
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `SDL_RENDERER` | Linux, Windows, macOS, Android (+ Web experimental) | 2D | window | none | baseline selection | Most portable renderer, and CNA's default off Linux. 2D only: no VertexBuffer/IndexBuffer/depth buffer. CNA documents it as untested on the web -- use WEBGL2 or CANVAS there. |
+| `SDL_RENDERER` | Linux, Windows, macOS, Android (+ Web experimental) | 2D | window | none | baseline selection | Most portable renderer, and CNA's default off Linux. 2D only: no 3D vertex/index buffers or depth buffer. CNA documents it as untested on the web -- use WEBGL2 or CANVAS there. |
 | `SDL_GPU` | Linux, Windows, macOS | 2D+3D | window | system libshaderc | broad-matrix candidate | SDL3's own GPU abstraction. Needs libshaderc installed (libshaderc-dev). |
 
 ## OpenGL family (shared EasyGL implementation)
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `OPENGLES3` | Linux, Windows, macOS, Android | 2D+3D | window | sibling ../easy-gl (which needs ../meta-gl) | baseline selection | CNA's default renderer on Linux. Internally EasyGL. |
 | `OPENGLES2` | Linux, Windows, macOS, Android | 2D+3D | window | sibling ../easy-gl (which needs ../meta-gl) | broad-matrix candidate | Internally EasyGL, GLES 2.0 profile. Cannot target the web — use WEBGL1. |
@@ -40,7 +40,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## OpenGL family (native, no EasyGL)
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `OPENGL1` | Linux, Windows | 2D+3D | window | system OpenGL | broad-matrix candidate | Legacy fixed-function OpenGL 1.x. Desktop Linux/Windows only. |
 | `OPENGL2` | Linux, Windows, macOS | 2D+3D | window | system OpenGL | broad-matrix candidate | Desktop OpenGL 2.1 compatibility profile, GLSL 1.10. No EasyGL. |
@@ -49,7 +49,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## Modern GPU APIs
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `VULKAN` | Linux, Windows (+ Android experimental) | 2D+3D | window | system Vulkan SDK (find_package(Vulkan REQUIRED)) | broad-matrix candidate | Real 3D via Vulkan. Builds on a CI runner but needs a real or software ICD to run. |
 | `WEBGPU` | Linux, Windows, macOS | 2D+3D | window | wgpu-native binary release, auto-downloaded | broad-matrix candidate | Despite the name this is a NATIVE renderer; CNA rejects it under Emscripten. |
@@ -57,7 +57,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## CPU / diagnostic
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `HEADLESS` | Linux, Windows, macOS, Android (+ Web experimental) | 2D+3D | **none** | none | baseline selection | No GPU and no window at all. The right choice for CI and servers. |
 | `SOFTWARE` | Linux, Windows, macOS, Android (+ Web experimental) | 2D+3D | **none** | none | baseline selection | Real CPU rasterizer. Creates no window and does not link SDL3, so Present() puts nothing on screen -- it is a compute/test renderer, not a display one. |
@@ -67,7 +67,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## 2D vector rasterizers
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `SKIA` | Linux, Windows, macOS | 2D | window | a Skia you built yourself (CNA_SKIA_ROOT + CNA_SKIA_BUILD_DIR) | on demand | Skia is never fetched: CNA fails configure unless you point it at your own build. |
 | `BLEND2D` | Linux, Windows, macOS | 2D | window | Blend2D + asmjit via FetchContent | broad-matrix candidate | Blend2D CPU vector rasterizer, presented through an SDL texture. |
@@ -76,7 +76,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## Browser DOM
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `CANVAS` | Web | 2D | window | none | broad-matrix candidate | Browser 2D canvas context. Needs no WebGL at all. |
 | `HTML_DOM` | Web | 2D | window | none | broad-matrix candidate | Draws sprites as pooled CSS-transformed <div> elements. No WebGL. |
@@ -84,7 +84,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## Portable middleware
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `BGFX` | Linux, Windows, macOS | 2D+3D | window | bgfx via FetchContent (pinned, patched) | broad-matrix candidate | bgfx cross-platform renderer. Primarily tested on Linux upstream. |
 | `MAGNUM` | Linux, Windows, macOS | 2D+3D | window | Corrade + Magnum (system, or via FetchContent) | broad-matrix candidate | Desktop GL through Magnum's typed wrappers. Cannot target the web. |
@@ -98,7 +98,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## Legacy APIs
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `FREEDIRECT` | Linux, Windows, macOS | 2D+3D | window | sibling ../free-direct | broad-matrix candidate | DirectDraw reimplemented on SDL3, so unlike DIRECTX* it builds on Linux. |
 | `GDI` | Windows | 2D | window | Win32 GDI | not on CI runners | Classic Win32 GDI, 2D only. |
@@ -106,7 +106,7 @@ If you set nothing, CNA chooses for you: `WEBGL2` on the web, `OPENGLES3` on Lin
 
 ## DirectX
 
-| Renderer | Platforms | Scope | Display | Dependency | Tested | Notes |
+| Renderer | Platforms | Scope | Display | Dependency | CI tier | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `DIRECT2D` | Windows | 2D | window | Direct2D 1.1 | not on CI runners | Direct2D 1.1, 2D only. |
 | `DIRECTX11` | Windows | 2D+3D | window | d3d11.h/dxgi.h | not on CI runners | Direct3D 11. |

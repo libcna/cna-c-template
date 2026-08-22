@@ -19,8 +19,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 # --- Customization point: rename your application here -----------------------
-# Drives the executable name and the CTest name. Renaming the C game itself
-# is a separate step -- see "Making this your own project" in README.md.
+# Drives the executable name. CTest keeps stable infrastructure identities;
+# renaming the C game itself is a separate step -- see "Making this your own
+# project" in README.md.
 set(CNA_TEMPLATE_APP_NAME "HelloGame" CACHE STRING
     "Name of the application executable produced by this template")
 
@@ -55,7 +56,7 @@ cna_template_dependency_pin(CNA
     _cna_expected_repository _cna_dependency_directory _cna_expected_revision)
 set(CNA_ROOT_DIR "" CACHE STRING "Path to the CNA framework checkout")
 option(CNA_ALLOW_UNPINNED
-    "Acknowledge an intentional CNA compatibility test outside dependencies.lock" OFF)
+    "Acknowledge intentional dependency compatibility tests outside dependencies.lock" OFF)
 if(CNA_ROOT_DIR STREQUAL "")
     foreach(_cna_candidate IN ITEMS
             "${CMAKE_CURRENT_SOURCE_DIR}/../${_cna_dependency_directory}"
@@ -92,6 +93,39 @@ set(CNA_ROOT_DIR "${_cna_root_real}" CACHE PATH
 message(STATUS "cna-c-template: using CNA at ${CNA_ROOT_DIR}")
 cna_template_verify_dependency_checkout(
     CNA "${CNA_ROOT_DIR}" "${CNA_ALLOW_UNPINNED}")
+
+# sharp-runtime is always part of CNA's public target closure. Resolve its
+# override with the same template-root semantics as CNA_ROOT_DIR, then set the
+# cache entry before CNA declares its own sibling default. This makes the path
+# we verify exactly the path CNA later passes to add_subdirectory().
+cna_template_dependency_pin(SHARP_RUNTIME
+    _sharp_expected_repository _sharp_dependency_directory
+    _sharp_expected_revision)
+set(CNA_SHARP_RUNTIME_ROOT "" CACHE STRING
+    "Path to the sharp-runtime checkout consumed by CNA")
+if(CNA_SHARP_RUNTIME_ROOT STREQUAL "")
+    set(CNA_SHARP_RUNTIME_ROOT
+        "${CNA_ROOT_DIR}/../${_sharp_dependency_directory}")
+else()
+    cmake_path(ABSOLUTE_PATH CNA_SHARP_RUNTIME_ROOT
+        BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" NORMALIZE
+        OUTPUT_VARIABLE _sharp_runtime_root_absolute)
+    set(CNA_SHARP_RUNTIME_ROOT "${_sharp_runtime_root_absolute}")
+endif()
+if(NOT EXISTS "${CNA_SHARP_RUNTIME_ROOT}/CMakeLists.txt")
+    message(FATAL_ERROR
+        "cna-c-template: sharp-runtime not found at '${CNA_SHARP_RUNTIME_ROOT}'.\n"
+        "Place ${_sharp_dependency_directory} beside CNA, or pass "
+        "-DCNA_SHARP_RUNTIME_ROOT=/path/to/${_sharp_dependency_directory}. "
+        "Relative overrides are resolved from the template repository root.")
+endif()
+file(REAL_PATH "${CNA_SHARP_RUNTIME_ROOT}" _sharp_runtime_root_real)
+set(CNA_SHARP_RUNTIME_ROOT "${_sharp_runtime_root_real}" CACHE PATH
+    "Path to the sharp-runtime checkout consumed by CNA" FORCE)
+message(STATUS
+    "cna-c-template: using sharp-runtime at ${CNA_SHARP_RUNTIME_ROOT}")
+cna_template_verify_dependency_checkout(
+    SHARP_RUNTIME "${CNA_SHARP_RUNTIME_ROOT}" "${CNA_ALLOW_UNPINNED}")
 
 # CNA-9 (module-layout half): older supported CNA revisions accidentally tested
 # the consumer's CMAKE_SOURCE_DIR for CNA's own legacy src/include directories.
@@ -238,6 +272,17 @@ if(EXISTS "${_cna_content_cmake}")
 endif()
 
 add_subdirectory("${CNA_ROOT_DIR}" CNA)
+
+# Renderer-specific sibling projects are only dependencies when CNA actually
+# creates their targets. SOURCE_DIR reports the checkout CMake consumed, so the
+# pin check remains correct if an upstream dependency later gains a path
+# override instead of assuming that every target came from a fixed sibling.
+cna_template_verify_dependency_target(
+    EASY_GL easy-gl "${CNA_ALLOW_UNPINNED}")
+cna_template_verify_dependency_target(
+    META_GL meta-gl "${CNA_ALLOW_UNPINNED}")
+cna_template_verify_dependency_target(
+    FREE_DIRECT free-direct "${CNA_ALLOW_UNPINNED}")
 
 # CNA's modular targets correctly use SharpRuntime::<Component>, but a few
 # ancillary upstream tools still link the legacy SHARP_RUNTIME name directly.
@@ -499,12 +544,17 @@ endif()
 # -----------------------------------------------------------------------------
 # Tests
 # -----------------------------------------------------------------------------
-option(CNA_TEMPLATE_BUILD_TESTS "Register cna-template's own smoke test" ON)
+option(CNA_TEMPLATE_BUILD_TESTS "Register cna-template's smoke regressions" ON)
 
 if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CROSSCOMPILING)
     enable_testing()
-    add_test(NAME ${CNA_TEMPLATE_APP_NAME}Smoke COMMAND ${_app} --smoke-test)
-    add_test(NAME ${CNA_TEMPLATE_APP_NAME}FailurePropagation
+    # These are stable infrastructure identities. They deliberately do not
+    # inherit the customizable executable name, so documented application
+    # renaming cannot silently invalidate CI's required test contract.
+    set(_smoke_test CnaCTemplateSmoke)
+    set(_failure_test CnaCTemplateFailurePropagation)
+    add_test(NAME ${_smoke_test} COMMAND ${_app} --smoke-test)
+    add_test(NAME ${_failure_test}
         COMMAND ${CMAKE_COMMAND}
             "-DTEST_EXECUTABLE=$<TARGET_FILE:${_app}>"
             "-DTEST_WORKING_DIRECTORY=$<TARGET_FILE_DIR:${_app}>"
@@ -521,10 +571,10 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
         set(_labels display)
     endif()
 
-    set_tests_properties(${CNA_TEMPLATE_APP_NAME}Smoke PROPERTIES
+    set_tests_properties(${_smoke_test} PROPERTIES
         TIMEOUT 30
         LABELS "${_labels}")
-    set_tests_properties(${CNA_TEMPLATE_APP_NAME}FailurePropagation PROPERTIES
+    set_tests_properties(${_failure_test} PROPERTIES
         TIMEOUT 30
         LABELS "${_labels};failure-propagation")
 elseif(CNA_TEMPLATE_BUILD_TESTS)

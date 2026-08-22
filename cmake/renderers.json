@@ -54,7 +54,7 @@
       "dependency": "none",
       "tier": "B",
       "preset": true,
-      "notes": "Most portable renderer, and CNA's default off Linux. 2D only: no VertexBuffer/IndexBuffer/depth buffer. CNA documents it as untested on the web -- use WEBGL2 or CANVAS there."
+      "notes": "Most portable renderer, and CNA's default off Linux. 2D only: no 3D vertex/index buffers or depth buffer. CNA documents it as untested on the web -- use WEBGL2 or CANVAS there."
     },
     {
       "name": "SDL_GPU",

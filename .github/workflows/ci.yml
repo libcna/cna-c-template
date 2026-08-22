@@ -17,6 +17,9 @@ permissions:
 jobs:
   pinned-headless-and-structure:
     runs-on: ubuntu-latest
+    env:
+      # Exercise the documented application-name customization on every run.
+      CNA_TEMPLATE_CI_APP_NAME: CnaTemplateCiApp
     steps:
       - name: Check out template
         uses: actions/checkout@v4
@@ -87,6 +90,7 @@ jobs:
           cmake -S . -B build-ci-headless -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCNA_GRAPHICS_RENDERER=HEADLESS \
+            -DCNA_TEMPLATE_APP_NAME="$CNA_TEMPLATE_CI_APP_NAME" \
             -DCNA_ROOT_DIR="$GITHUB_WORKSPACE/_dependencies/cna" \
             -DCNA_SHARP_RUNTIME_ROOT="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
             -DCNA_ENABLE_DRACO=OFF
@@ -95,19 +99,18 @@ jobs:
       - name: Verify and run the exact HEADLESS CTest contract
         run: |
           python3 tools/verify_ctest_contract.py \
-            --test-dir build-ci-headless \
-            --expect HelloGameSmoke HelloGameFailurePropagation
+            --test-dir build-ci-headless
           ctest --test-dir build-ci-headless --output-on-failure
 
       - name: Prove exact failure-injection process behavior
         working-directory: build-ci-headless
         run: |
-          ./HelloGame --smoke-test
+          "./${CNA_TEMPLATE_CI_APP_NAME}" --smoke-test
           set +e
-          ./HelloGame --smoke-test --simulate-draw-failure \
+          "./${CNA_TEMPLATE_CI_APP_NAME}" --smoke-test --simulate-draw-failure \
             > "$RUNNER_TEMP/injected-failure.log" 2>&1
           injected_status=$?
-          ./HelloGame --smoke-test --unrelated-early-failure \
+          "./${CNA_TEMPLATE_CI_APP_NAME}" --smoke-test --unrelated-early-failure \
             > "$RUNNER_TEMP/early-failure.log" 2>&1
           early_status=$?
           cmake \
@@ -199,9 +202,10 @@ jobs:
       - name: Verify Gradle dependency-drift acknowledgement contract
         working-directory: android
         run: |
-          drift_marker="$GITHUB_WORKSPACE/_dependencies/cna/.cna-template-drift-test"
-          touch "$drift_marker"
-          trap 'rm -f "$drift_marker"' EXIT
+          cna_drift_marker="$GITHUB_WORKSPACE/_dependencies/cna/.cna-template-drift-test"
+          sharp_drift_marker="$GITHUB_WORKSPACE/_dependencies/sharp-runtime/.cna-template-drift-test"
+          touch "$cna_drift_marker"
+          trap 'rm -f "$cna_drift_marker" "$sharp_drift_marker"' EXIT
           set +e
           ./gradlew \
             -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
@@ -213,12 +217,30 @@ jobs:
           grep -F "CNA checkout drift" "$RUNNER_TEMP/gradle-pin-drift.log"
           grep -F "worktree has local changes" "$RUNNER_TEMP/gradle-pin-drift.log"
 
+          rm -f "$cna_drift_marker"
+          touch "$sharp_drift_marker"
+          set +e
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            help > "$RUNNER_TEMP/gradle-sharp-pin-drift.log" 2>&1
+          sharp_drift_status=$?
+          set -e
+          test "$sharp_drift_status" -ne 0
+          grep -F "SHARP_RUNTIME checkout drift" \
+            "$RUNNER_TEMP/gradle-sharp-pin-drift.log"
+          grep -F "worktree has local changes" \
+            "$RUNNER_TEMP/gradle-sharp-pin-drift.log"
+
+          touch "$cna_drift_marker"
           ./gradlew \
             -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
             -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
             -PcnaAllowUnpinned=true \
             help > "$RUNNER_TEMP/gradle-pin-acknowledged.log" 2>&1
           grep -F "intentional unpinned CNA compatibility test" \
+            "$RUNNER_TEMP/gradle-pin-acknowledged.log"
+          grep -F "intentional unpinned SHARP_RUNTIME compatibility test" \
             "$RUNNER_TEMP/gradle-pin-acknowledged.log"
 
       - name: Compile debug Java and resources without release credentials

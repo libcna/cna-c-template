@@ -34,8 +34,7 @@ python3 cna-c-template/tools/dependency_pins.py \
 cd cna-c-template
 cmake --preset headless
 cmake --build --preset headless -j3
-python3 tools/verify_ctest_contract.py --test-dir build-headless \
-    --expect HelloGameSmoke HelloGameFailurePropagation
+python3 tools/verify_ctest_contract.py --test-dir build-headless
 ctest --preset headless
 ```
 
@@ -188,14 +187,19 @@ repository, local directory, and exact revision. The quick start consumes all th
 `tools/dependency_pins.py --check` verifies revision and worktree cleanliness, and CI reads the same
 records for checkout. There is no duplicated workflow repository or revision pin.
 
-Ordinary CMake and Gradle configuration also inspect CNA. A dirty or different Git revision fails
-unless an intentional compatibility test is explicitly acknowledged with
+Ordinary CMake and Gradle configuration inspect both always-used checkouts, CNA and sharp-runtime.
+CMake also verifies the source checkout behind any EasyGL, MetaGL, or FreeDirect target that CNA
+actually creates; Gradle performs the corresponding early check when `-PcnaRenderer` explicitly
+selects one of those families, and the nested CMake configure remains authoritative for CNA's
+platform default. A dirty or different Git revision fails unless an intentional compatibility test
+is explicitly acknowledged with
 `-DCNA_ALLOW_UNPINNED=ON` (CMake) or `-PcnaAllowUnpinned=true` (Gradle; it forwards the matching
 CMake option). Relative and absolute root overrides remain supported, but an override is not itself
-an acknowledgement. A source archive without `.git` metadata remains usable and produces a clear
-warning that its pin cannot be verified; Git is not mandatory for that consumption mode. Update the
-lock only after the generator, both smoke tests, and relevant platform builds pass. The template-side
-compatibility measures and upstream status are documented in [docs/compatibility.md](docs/compatibility.md).
+an acknowledgement. A consumed source archive without `.git` metadata remains usable and produces
+a clear warning that its pin cannot be verified; Git is not mandatory for that consumption mode.
+Update the lock only after the generator, both smoke tests, and relevant platform builds pass. The
+template-side compatibility measures and upstream status are documented in
+[docs/compatibility.md](docs/compatibility.md).
 
 ## Renderer metadata
 
@@ -221,7 +225,10 @@ an intentional successful `[]`.
 5. Create new release signing credentials; never reuse the template values above.
 
 Application C sources live under `game/src/` and headers under `game/include/`. `Content/` is
-copied next to native executables and packaged as Android assets.
+copied next to native executables and packaged as Android assets. The CTest identities
+`CnaCTemplateSmoke` and `CnaCTemplateFailurePropagation` are intentionally stable infrastructure
+names, and CI configures its executable name through `CNA_TEMPLATE_CI_APP_NAME`; changing the
+application's default `CNA_TEMPLATE_APP_NAME` therefore requires no workflow edit.
 
 ## Repository checks
 
@@ -231,8 +238,7 @@ python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py \
 python3 -m unittest discover -s test -v
 python3 tools/gen_renderer_files.py --check
 # After configuring build-headless:
-python3 tools/verify_ctest_contract.py --test-dir build-headless \
-    --expect HelloGameSmoke HelloGameFailurePropagation
+python3 tools/verify_ctest_contract.py --test-dir build-headless
 ctest --test-dir build-headless --output-on-failure
 git diff --check
 ```
