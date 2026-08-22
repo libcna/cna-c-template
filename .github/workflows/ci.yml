@@ -3,6 +3,13 @@ name: Repository checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      verify_android_native:
+        description: Run the pinned assembleDebug path (currently expected to expose the CNA blocker)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -17,13 +24,15 @@ jobs:
       - name: Read authoritative dependency pins
         id: pins
         run: |
+          echo "cna_repository=$(python3 tools/dependency_pins.py --repository CNA)" >> "$GITHUB_OUTPUT"
           echo "cna=$(python3 tools/dependency_pins.py --revision CNA)" >> "$GITHUB_OUTPUT"
+          echo "sharp_runtime_repository=$(python3 tools/dependency_pins.py --repository SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
           echo "sharp_runtime=$(python3 tools/dependency_pins.py --revision SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
 
       - name: Check out pinned CNA
         uses: actions/checkout@v4
         with:
-          repository: openeggbert/cna
+          repository: ${{ steps.pins.outputs.cna_repository }}
           ref: ${{ steps.pins.outputs.cna }}
           path: _dependencies/cna
           submodules: true
@@ -31,15 +40,38 @@ jobs:
       - name: Check out pinned sharp-runtime
         uses: actions/checkout@v4
         with:
-          repository: openeggbert/sharp-runtime
+          repository: ${{ steps.pins.outputs.sharp_runtime_repository }}
           ref: ${{ steps.pins.outputs.sharp_runtime }}
           path: _dependencies/sharp-runtime
 
       - name: Verify pins and generated renderer data
         run: |
+          python3 tools/dependency_pins.py
           python3 tools/dependency_pins.py --dependencies-dir _dependencies --check CNA SHARP_RUNTIME
-          python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py
+          python3 -m py_compile \
+            tools/dependency_pins.py \
+            tools/gen_renderer_files.py \
+            tools/verify_ctest_contract.py
           python3 tools/gen_renderer_files.py --check --cna-root _dependencies/cna
+
+      - name: Prove renderer generation is deterministic
+        run: |
+          python3 tools/gen_renderer_files.py --cna-root _dependencies/cna
+          git diff --exit-code
+          python3 tools/gen_renderer_files.py --cna-root _dependencies/cna
+          git diff --exit-code
+
+      - name: Exercise renderer matrix input contracts
+        run: |
+          set +e
+          python3 tools/gen_renderer_files.py --ci-matrix linx
+          invalid_platform_status=$?
+          python3 tools/gen_renderer_files.py --ci-matrix linux --tiers Z
+          invalid_tier_status=$?
+          set -e
+          test "$invalid_platform_status" -eq 2
+          test "$invalid_tier_status" -eq 2
+          test "$(python3 tools/gen_renderer_files.py --ci-matrix android --tiers X)" = "[]"
 
       - name: Run repository regression tests
         run: python3 -m unittest discover -s test -v
@@ -60,10 +92,231 @@ jobs:
             -DCNA_ENABLE_DRACO=OFF
           cmake --build build-ci-headless --parallel 3
 
-      - name: Run both meaningful smoke tests
+      - name: Verify and run the exact HEADLESS CTest contract
         run: |
-          ctest --test-dir build-ci-headless -N
+          python3 tools/verify_ctest_contract.py \
+            --test-dir build-ci-headless \
+            --expect HelloGameSmoke HelloGameFailurePropagation
           ctest --test-dir build-ci-headless --output-on-failure
 
+      - name: Prove exact failure-injection process behavior
+        working-directory: build-ci-headless
+        run: |
+          ./HelloGame --smoke-test
+          set +e
+          ./HelloGame --smoke-test --simulate-draw-failure \
+            > "$RUNNER_TEMP/injected-failure.log" 2>&1
+          injected_status=$?
+          ./HelloGame --smoke-test --unrelated-early-failure \
+            > "$RUNNER_TEMP/early-failure.log" 2>&1
+          early_status=$?
+          cmake \
+            -DTEST_EXECUTABLE=/usr/bin/false \
+            -DTEST_WORKING_DIRECTORY="$RUNNER_TEMP" \
+            -P "$GITHUB_WORKSPACE/cmake/VerifyFailurePropagation.cmake" \
+            > "$RUNNER_TEMP/unrelated-wrapper-failure.log" 2>&1
+          wrapper_status=$?
+          set -e
+          test "$injected_status" -eq 86
+          grep -F "CNA_TEMPLATE_TEST: draw failure injected (result=2)" \
+            "$RUNNER_TEMP/injected-failure.log"
+          grep -F "CNA_TEMPLATE_TEST: draw failure propagated (injected_result=2, run_result=9, destroy_result=9, exit_code=86)" \
+            "$RUNNER_TEMP/injected-failure.log"
+          test "$early_status" -eq 2
+          test "$early_status" -ne 86
+          grep -F "unknown argument '--unrelated-early-failure'" \
+            "$RUNNER_TEMP/early-failure.log"
+          test "$wrapper_status" -ne 0
+          grep -F "Expected exit: 86; actual: 1" \
+            "$RUNNER_TEMP/unrelated-wrapper-failure.log"
+
       - name: Ensure checks did not rewrite tracked files
+        run: git diff --exit-code
+
+  android-gradle-configuration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out template
+        uses: actions/checkout@v4
+
+      - name: Read authoritative Android dependency pins
+        id: pins
+        run: |
+          echo "cna_repository=$(python3 tools/dependency_pins.py --repository CNA)" >> "$GITHUB_OUTPUT"
+          echo "cna=$(python3 tools/dependency_pins.py --revision CNA)" >> "$GITHUB_OUTPUT"
+          echo "sharp_runtime_repository=$(python3 tools/dependency_pins.py --repository SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
+          echo "sharp_runtime=$(python3 tools/dependency_pins.py --revision SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out pinned CNA
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pins.outputs.cna_repository }}
+          ref: ${{ steps.pins.outputs.cna }}
+          path: _dependencies/cna
+          submodules: true
+
+      - name: Check out pinned sharp-runtime
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pins.outputs.sharp_runtime_repository }}
+          ref: ${{ steps.pins.outputs.sharp_runtime }}
+          path: _dependencies/sharp-runtime
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle and validate the Wrapper
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          build-root-directory: android
+
+      - name: Install the documented Android toolchain
+        uses: android-actions/setup-android@v3
+
+      - name: Install exact SDK, build-tools, NDK, and CMake versions
+        run: |
+          sdkmanager \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;29.0.14206865" \
+            "cmake;4.1.2"
+
+      - name: Verify pinned Android inputs
+        run: python3 tools/dependency_pins.py --dependencies-dir _dependencies --check CNA SHARP_RUNTIME
+
+      - name: Exercise Gradle Wrapper and project configuration
+        working-directory: android
+        run: |
+          ./gradlew --version
+          ./gradlew \
+            -PcnaRootDir=_dependencies/cna \
+            -PcnaSharpRuntimeRootDir=_dependencies/sharp-runtime \
+            help tasks
+
+      - name: Verify Gradle dependency-drift acknowledgement contract
+        working-directory: android
+        run: |
+          drift_marker="$GITHUB_WORKSPACE/_dependencies/cna/.cna-template-drift-test"
+          touch "$drift_marker"
+          trap 'rm -f "$drift_marker"' EXIT
+          set +e
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            help > "$RUNNER_TEMP/gradle-pin-drift.log" 2>&1
+          drift_status=$?
+          set -e
+          test "$drift_status" -ne 0
+          grep -F "CNA checkout drift" "$RUNNER_TEMP/gradle-pin-drift.log"
+          grep -F "worktree has local changes" "$RUNNER_TEMP/gradle-pin-drift.log"
+
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            -PcnaAllowUnpinned=true \
+            help > "$RUNNER_TEMP/gradle-pin-acknowledged.log" 2>&1
+          grep -F "intentional unpinned CNA compatibility test" \
+            "$RUNNER_TEMP/gradle-pin-acknowledged.log"
+
+      - name: Compile debug Java and resources without release credentials
+        working-directory: android
+        run: |
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            :app:compileDebugJavaWithJavac :app:processDebugResources
+
+      - name: Configure the pinned arm64 native model without compiling CNA
+        working-directory: android
+        run: |
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            ':app:configureCMakeDebug[arm64-v8a]'
+
+      - name: Verify the pre-blocker Android native integration contract
+        working-directory: android
+        run: |
+          mapfile -t native_dirs < <(
+            find app/.cxx/Debug -mindepth 2 -maxdepth 2 \
+              -type d -name arm64-v8a -print
+          )
+          test "${#native_dirs[@]}" -eq 1
+          native_dir="${native_dirs[0]}"
+
+          CCACHE_DISABLE=1 "$ANDROID_HOME/cmake/4.1.2/bin/cmake" \
+            --build "$native_dir" \
+            --target CMakeFiles/main.dir/game/src/Program.c.o
+          "$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" \
+            --defined-only --extern-only \
+            "$native_dir/CMakeFiles/main.dir/game/src/Program.c.o" \
+            > "$RUNNER_TEMP/android-entry-symbols.txt"
+          grep -E '[[:space:]]T[[:space:]]SDL_main$' \
+            "$RUNNER_TEMP/android-entry-symbols.txt"
+          if grep -Eq '[[:space:]]T[[:space:]]main$' \
+              "$RUNNER_TEMP/android-entry-symbols.txt"; then
+            echo "Android entry object exported main instead of only SDL_main" >&2
+            exit 1
+          fi
+          "$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            --symbols "$native_dir/CMakeFiles/main.dir/game/src/Program.c.o" \
+            > "$RUNNER_TEMP/android-entry-symbol-table.txt"
+          grep -E 'FUNC[[:space:]]+GLOBAL[[:space:]]+DEFAULT.*[[:space:]]SDL_main$' \
+            "$RUNNER_TEMP/android-entry-symbol-table.txt"
+
+          mapfile -t native_models < <(
+            find "$native_dir" -maxdepth 1 \
+              -type f -name android_gradle_build_mini.json -print
+          )
+          test "${#native_models[@]}" -eq 1
+          jq -e '
+            [.libraries[] | select(.artifactName == "main")] as $main |
+            [.libraries[] | select(.artifactName == "cna_c_api")] as $api |
+            ($main | length) == 1 and
+            ($api | length) == 1 and
+            ($main[0].output | endswith("/libmain.so")) and
+            ($main[0].runtimeFiles | map(split("/")[-1]) |
+              index("libcna_c_api.so") != null and index("libSDL3.so") != null) and
+            ($api[0].runtimeFiles | map(split("/")[-1]) |
+              index("libSDL3_mixer.so") != null and index("libSDL3.so") != null)
+          ' "${native_models[0]}"
+          grep -F 'return "SDL_main";' \
+            "$GITHUB_WORKSPACE/_dependencies/cna/third_party/SDL/android-project/app/src/main/java/org/libsdl/app/SDLActivity.java"
+          grep -E '^[[:space:]]*"main"[[:space:]]*$' \
+            app/src/main/java/org/openeggbert/cnatemplate/HelloGameActivity.java
+          grep -F "abiFilters 'arm64-v8a', 'x86_64'" app/build.gradle
+
+      - name: Opt in to the complete pinned Android debug APK build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.verify_android_native }}
+        working-directory: android
+        run: |
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            :app:assembleDebug
+
+      - name: Verify release-signing negative contract
+        working-directory: android
+        run: |
+          set +e
+          ./gradlew \
+            -PcnaRootDir="$GITHUB_WORKSPACE/_dependencies/cna" \
+            -PcnaSharpRuntimeRootDir="$GITHUB_WORKSPACE/_dependencies/sharp-runtime" \
+            :app:preReleaseBuild \
+            > "$RUNNER_TEMP/release-signing.log" 2>&1
+          signing_status=$?
+          set -e
+          test "$signing_status" -ne 0
+          grep -F "> Task :app:validateCnaReleaseSigning FAILED" \
+            "$RUNNER_TEMP/release-signing.log"
+          grep -F "Release signing requires" "$RUNNER_TEMP/release-signing.log"
+
+      # The opt-in assembleDebug step is deliberately not suppressed or marked
+      # continue-on-error. With the current pin it remains red at CNA's cna_c_api
+      # diagnostics; once CNA is fixed, make it part of required CI.
+
+      - name: Ensure Android checks did not rewrite tracked files
         run: git diff --exit-code

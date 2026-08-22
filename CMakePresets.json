@@ -24,7 +24,16 @@
       "name": "web-base",
       "hidden": true,
       "inherits": "release",
-      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake"
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "mingw-base",
@@ -45,6 +54,15 @@
       "binaryDir": "${sourceDir}/build-sdl-renderer",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "SDL_RENDERER"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -55,6 +73,15 @@
       "binaryDir": "${sourceDir}/build-sdl-gpu",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "SDL_GPU"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -65,6 +92,15 @@
       "binaryDir": "${sourceDir}/build-opengles3",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGLES3"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -75,6 +111,15 @@
       "binaryDir": "${sourceDir}/build-opengles2",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGLES2"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -85,6 +130,15 @@
       "binaryDir": "${sourceDir}/build-opengl33",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGL33"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -95,6 +149,15 @@
       "binaryDir": "${sourceDir}/build-web-webgl2",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "WEBGL2"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -105,6 +168,15 @@
       "binaryDir": "${sourceDir}/build-web-webgl1",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "WEBGL1"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -115,6 +187,14 @@
       "binaryDir": "${sourceDir}/build-opengl1",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGL1"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
       }
     },
     {
@@ -125,6 +205,15 @@
       "binaryDir": "${sourceDir}/build-opengl2",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGL2"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -135,6 +224,15 @@
       "binaryDir": "${sourceDir}/build-opengl4",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "OPENGL4"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -145,6 +243,14 @@
       "binaryDir": "${sourceDir}/build-vulkan",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "VULKAN"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
       }
     },
     {
@@ -155,6 +261,15 @@
       "binaryDir": "${sourceDir}/build-webgpu",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "WEBGPU"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -180,6 +295,15 @@
       "binaryDir": "${sourceDir}/build-headless",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "HEADLESS"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -190,6 +314,15 @@
       "binaryDir": "${sourceDir}/build-software",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "SOFTWARE"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -200,6 +333,15 @@
       "binaryDir": "${sourceDir}/build-stub",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "STUB"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -210,6 +352,15 @@
       "binaryDir": "${sourceDir}/build-portablegl",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "PORTABLEGL"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -220,6 +371,15 @@
       "binaryDir": "${sourceDir}/build-blend2d",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "BLEND2D"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -230,6 +390,15 @@
       "binaryDir": "${sourceDir}/build-web-canvas",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "CANVAS"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -240,6 +409,15 @@
       "binaryDir": "${sourceDir}/build-web-html-dom",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "HTML_DOM"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -250,6 +428,15 @@
       "binaryDir": "${sourceDir}/build-web-svg-dom",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "SVG_DOM"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -260,6 +447,15 @@
       "binaryDir": "${sourceDir}/build-bgfx",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "BGFX"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -270,6 +466,15 @@
       "binaryDir": "${sourceDir}/build-sokol",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "SOKOL"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -280,6 +485,15 @@
       "binaryDir": "${sourceDir}/build-fna3d",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "FNA3D"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -290,6 +504,30 @@
       "binaryDir": "${sourceDir}/build-freedirect",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "FREEDIRECT"
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "directx11",
+      "displayName": "DIRECTX11 \u2014 Direct3D 11",
+      "description": "2D3D renderer. Platforms: windows. Dependency: d3d11.h/dxgi.h.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-directx11",
+      "cacheVariables": {
+        "CNA_GRAPHICS_RENDERER": "DIRECTX11"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
       }
     },
     {
@@ -305,6 +543,21 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Linux"
+      }
+    },
+    {
+      "name": "directx12",
+      "displayName": "DIRECTX12 \u2014 Direct3D 12",
+      "description": "2D3D renderer. Platforms: windows. Dependency: d3d12.h/dxgi.h.",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build-directx12",
+      "cacheVariables": {
+        "CNA_GRAPHICS_RENDERER": "DIRECTX12"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
       }
     },
     {
@@ -326,51 +579,157 @@
   "buildPresets": [
     {
       "name": "sdl-renderer",
-      "configurePreset": "sdl-renderer"
+      "configurePreset": "sdl-renderer",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "sdl-gpu",
-      "configurePreset": "sdl-gpu"
+      "configurePreset": "sdl-gpu",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "opengles3",
-      "configurePreset": "opengles3"
+      "configurePreset": "opengles3",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "opengles2",
-      "configurePreset": "opengles2"
+      "configurePreset": "opengles2",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "opengl33",
-      "configurePreset": "opengl33"
+      "configurePreset": "opengl33",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "web-webgl2",
-      "configurePreset": "web-webgl2"
+      "configurePreset": "web-webgl2",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "web-webgl1",
-      "configurePreset": "web-webgl1"
+      "configurePreset": "web-webgl1",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "opengl1",
-      "configurePreset": "opengl1"
+      "configurePreset": "opengl1",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
+      }
     },
     {
       "name": "opengl2",
-      "configurePreset": "opengl2"
+      "configurePreset": "opengl2",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "opengl4",
-      "configurePreset": "opengl4"
+      "configurePreset": "opengl4",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "vulkan",
-      "configurePreset": "vulkan"
+      "configurePreset": "vulkan",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
+      }
     },
     {
       "name": "webgpu",
-      "configurePreset": "webgpu"
+      "configurePreset": "webgpu",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "metal",
@@ -383,51 +742,168 @@
     },
     {
       "name": "headless",
-      "configurePreset": "headless"
+      "configurePreset": "headless",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "software",
-      "configurePreset": "software"
+      "configurePreset": "software",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "stub",
-      "configurePreset": "stub"
+      "configurePreset": "stub",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "portablegl",
-      "configurePreset": "portablegl"
+      "configurePreset": "portablegl",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "blend2d",
-      "configurePreset": "blend2d"
+      "configurePreset": "blend2d",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "web-canvas",
-      "configurePreset": "web-canvas"
+      "configurePreset": "web-canvas",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "web-html-dom",
-      "configurePreset": "web-html-dom"
+      "configurePreset": "web-html-dom",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "web-svg-dom",
-      "configurePreset": "web-svg-dom"
+      "configurePreset": "web-svg-dom",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "bgfx",
-      "configurePreset": "bgfx"
+      "configurePreset": "bgfx",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "sokol",
-      "configurePreset": "sokol"
+      "configurePreset": "sokol",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "fna3d",
-      "configurePreset": "fna3d"
+      "configurePreset": "fna3d",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
     },
     {
       "name": "freedirect",
-      "configurePreset": "freedirect"
+      "configurePreset": "freedirect",
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "directx11",
+      "configurePreset": "directx11",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     },
     {
       "name": "windows-directx11",
@@ -436,6 +912,15 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Linux"
+      }
+    },
+    {
+      "name": "directx12",
+      "configurePreset": "directx12",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
       }
     },
     {
@@ -455,10 +940,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -467,10 +964,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -479,10 +988,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -491,10 +1012,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -503,10 +1036,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -515,10 +1060,21 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
       }
     },
     {
@@ -527,10 +1083,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -539,10 +1107,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -551,10 +1131,21 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows"
+        ]
       }
     },
     {
@@ -563,10 +1154,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -574,6 +1177,9 @@
       "configurePreset": "metal",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
       },
       "filter": {
         "include": {
@@ -592,10 +1198,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "headless"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -604,10 +1222,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "headless"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -616,10 +1246,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "headless"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -628,10 +1270,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "headless"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -640,10 +1294,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -652,10 +1318,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -664,10 +1342,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -676,10 +1366,22 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
       }
     },
     {
@@ -688,10 +1390,62 @@
       "output": {
         "outputOnFailure": true
       },
+      "execution": {
+        "noTestsAction": "error"
+      },
       "filter": {
         "include": {
           "label": "display"
         }
+      },
+      "condition": {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": [
+          "Linux",
+          "Windows",
+          "Darwin"
+        ]
+      }
+    },
+    {
+      "name": "directx11",
+      "configurePreset": "directx11",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "filter": {
+        "include": {
+          "label": "display"
+        }
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "directx12",
+      "configurePreset": "directx12",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      },
+      "filter": {
+        "include": {
+          "label": "display"
+        }
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
       }
     }
   ]

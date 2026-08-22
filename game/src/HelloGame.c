@@ -105,6 +105,8 @@ typedef struct {
     bool hasWindow;
     bool smokeTest;
     bool simulateDrawFailure;
+    bool drawFailureInjected;
+    CNA_Result injectedDrawFailureResult;
     unsigned int drawnFrames;
     char callbackError[768];
 } HelloGameData;
@@ -177,6 +179,22 @@ static CNA_Result ReportTemplateFailure(CNA_Result result, const char* message,
         error->message = view(data->callbackError);
     }
     return result;
+}
+
+static void RecordCleanupFailure(CNA_Result* firstResult, CNA_Result result,
+                                 const char* what, HelloGameData* data,
+                                 CNA_CallbackError* error) {
+    if (result == CNA_RESULT_SUCCESS) {
+        return;
+    }
+
+    /* A secondary cleanup failure is still worth reporting, but it must not replace the
+       callback diagnostic or result that explains why cleanup was necessary. */
+    if (*firstResult == CNA_RESULT_SUCCESS) {
+        *firstResult = ReportCnaFailure(result, what, data, error);
+    } else {
+        (void)ReportCnaFailure(result, what, NULL, NULL);
+    }
 }
 
 #define CNA_TRY(data, error, expression) do { \
@@ -319,10 +337,8 @@ static CNA_Result Draw2DLogo(HelloGameData* data, CNA_CallbackError* error) {
             result, "cna_sprite_batch_submit_scaled_many", data, error);
         /* End still releases the batch's retained references after a refused submission. */
         CNA_Result endResult = cna_sprite_batch_end(data->spriteBatch);
-        if (endResult != CNA_RESULT_SUCCESS) {
-            (void)ReportCnaFailure(
-                endResult, "cna_sprite_batch_end after failed submission", NULL, NULL);
-        }
+        RecordCleanupFailure(&result, endResult,
+            "cna_sprite_batch_end after failed submission", data, error);
         return result;
     }
     CNA_TRY(data, error, cna_sprite_batch_end(data->spriteBatch));
@@ -453,23 +469,18 @@ cleanup:
        for the life of the process. */
     if (pass != CNA_INVALID_HANDLE) {
         CNA_Result cleanupResult = cna_effect_pass_destroy(pass);
-        if (result == CNA_RESULT_SUCCESS && cleanupResult != CNA_RESULT_SUCCESS) {
-            result = ReportCnaFailure(cleanupResult, "cna_effect_pass_destroy", data, error);
-        }
+        RecordCleanupFailure(
+            &result, cleanupResult, "cna_effect_pass_destroy", data, error);
     }
     if (passes != CNA_INVALID_HANDLE) {
         CNA_Result cleanupResult = cna_effect_pass_collection_destroy(passes);
-        if (result == CNA_RESULT_SUCCESS && cleanupResult != CNA_RESULT_SUCCESS) {
-            result = ReportCnaFailure(
-                cleanupResult, "cna_effect_pass_collection_destroy", data, error);
-        }
+        RecordCleanupFailure(&result, cleanupResult,
+            "cna_effect_pass_collection_destroy", data, error);
     }
     if (technique != CNA_INVALID_HANDLE) {
         CNA_Result cleanupResult = cna_effect_technique_destroy(technique);
-        if (result == CNA_RESULT_SUCCESS && cleanupResult != CNA_RESULT_SUCCESS) {
-            result = ReportCnaFailure(
-                cleanupResult, "cna_effect_technique_destroy", data, error);
-        }
+        RecordCleanupFailure(&result, cleanupResult,
+            "cna_effect_technique_destroy", data, error);
     }
     return result;
 }
@@ -537,9 +548,8 @@ static CNA_Result DrawRendererBanner(HelloGameData* data, CNA_CallbackError* err
 end_batch:
     {
         CNA_Result endResult = cna_sprite_batch_end(data->spriteBatch);
-        if (result == CNA_RESULT_SUCCESS && endResult != CNA_RESULT_SUCCESS) {
-            result = ReportCnaFailure(endResult, "cna_sprite_batch_end", data, error);
-        }
+        RecordCleanupFailure(
+            &result, endResult, "cna_sprite_batch_end", data, error);
     }
     return result;
 }
@@ -618,7 +628,21 @@ static CNA_Result HelloGame_Draw(CNA_Handle game, const CNA_GameTime* time, void
 
     if (data->simulateDrawFailure && data->drawnFrames == 0U) {
         CNA_Viewport ignored;
-        CNA_TRY(data, error, cna_graphics_device_get_viewport(CNA_INVALID_HANDLE, &ignored));
+        data->injectedDrawFailureResult =
+            cna_graphics_device_get_viewport(CNA_INVALID_HANDLE, &ignored);
+        data->drawFailureInjected = true;
+        fprintf(stderr, "CNA_TEMPLATE_TEST: draw failure injected (result=%d)\n",
+                (int)data->injectedDrawFailureResult);
+        fflush(stderr);
+        if (data->injectedDrawFailureResult == CNA_RESULT_SUCCESS) {
+            return ReportTemplateFailure(
+                CNA_RESULT_INVALID_STATE,
+                "simulated draw failure unexpectedly returned success",
+                data, error);
+        }
+        return ReportCnaFailure(
+            data->injectedDrawFailureResult,
+            "cna_graphics_device_get_viewport(CNA_INVALID_HANDLE)", data, error);
     }
 
     if (data->supportsThreeD && data->supportsDepth) {
@@ -652,14 +676,6 @@ static CNA_Result HelloGame_Draw(CNA_Handle game, const CNA_GameTime* time, void
     }
 
     return CNA_RESULT_SUCCESS;
-}
-
-static void RecordCleanupFailure(CNA_Result* firstResult, CNA_Result result,
-                                 const char* what, HelloGameData* data,
-                                 CNA_CallbackError* error) {
-    if (*firstResult == CNA_RESULT_SUCCESS && result != CNA_RESULT_SUCCESS) {
-        *firstResult = ReportCnaFailure(result, what, data, error);
-    }
 }
 
 static CNA_Result ReleaseResources(HelloGameData* data, CNA_CallbackError* error) {
@@ -709,6 +725,16 @@ static CNA_Result HelloGame_UnloadContent(CNA_Handle game, const CNA_GameTime* t
    game creation was refused, the handle stayed invalid, and main() had no way to know. */
 bool HelloGame_Check(CNA_Result result, const char* what) {
     return ReportCnaFailure(result, what, NULL, NULL) == CNA_RESULT_SUCCESS;
+}
+
+bool HelloGame_GetInjectedDrawFailure(CNA_Result* result) {
+    if (activeGameData == NULL || !activeGameData->drawFailureInjected) {
+        return false;
+    }
+    if (result != NULL) {
+        *result = activeGameData->injectedDrawFailureResult;
+    }
+    return true;
 }
 
 CNA_Handle HelloGame_Create(bool smokeTest, bool simulateDrawFailure) {
@@ -777,7 +803,9 @@ CNA_Result HelloGame_Destroy(CNA_Handle game) {
                 firstResult = reported;
             }
         }
-        if (destroyResult == CNA_RESULT_SUCCESS) {
+        /* CNA_RESULT_CALLBACK is the game loop's primary callback failure, not a refusal to
+           destroy. The public C API contract says the handle is released in both cases. */
+        if (destroyResult == CNA_RESULT_SUCCESS || destroyResult == CNA_RESULT_CALLBACK) {
             free(activeGameData);
             activeGameData = NULL;
         }

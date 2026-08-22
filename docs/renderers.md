@@ -132,4 +132,6 @@ cmake --build --preset opengles3     # build
 ctest --preset opengles3             # smoke test
 ```
 
-Web presets and the `windows-directx*` MinGW cross-build presets intentionally have no CTest preset because their binaries cannot execute directly on the configuring host.
+Native configure, build, and runnable test presets all receive the same host condition, derived from every supported desktop platform above. Android uses Gradle instead. Web presets are cross-build routes available on Linux, Windows, and macOS hosts. Runnable test presets treat zero discovered tests as an error.
+
+Windows-only renderers have native Windows presets plus `windows-directx*` MinGW cross-build routes on Linux. Web and MinGW routes intentionally have no CTest preset because their binaries cannot execute directly on the configuring host.

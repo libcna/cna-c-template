@@ -1,9 +1,12 @@
 # CNA compatibility measures
 
-`dependencies.lock` names the exact dependency baseline targeted and audited by this template. Newer CNA or
-sharp-runtime revisions are welcome during an intentional upgrade, but are not silently treated as
-equivalent: the renderer generator and CMake both compare CNA's canonical renderer set with
-`cmake/renderers.json`.
+`dependencies.lock` names the exact dependency baseline targeted and audited by this template.
+Newer CNA or sharp-runtime revisions are welcome during an intentional upgrade, but are not
+silently treated as equivalent: ordinary CMake and Gradle builds compare CNA HEAD and worktree
+state with the lock, while the renderer generator and CMake also compare CNA's canonical renderer
+set with `cmake/renderers.json`. Use `CNA_ALLOW_UNPINNED=ON` or Gradle's
+`cnaAllowUnpinned=true` only for an intentional compatibility test. A source archive without Git
+metadata is accepted with an explicit unverifiable-pin warning.
 
 The template keeps a few narrow compatibility measures for revisions used while the C binding was
 being developed. Each measure detects the upstream shape that needs it. A fixed upstream shape is
@@ -25,14 +28,44 @@ compile-time accessor.
 
 ## Known dependency-side baseline limitation
 
-The pinned CNA revision does not currently finish an Android C-API build with NDK
-`29.0.14206865`. CNA gives `cna_c_api` strict Clang warnings-as-errors, while several CNA headers
-trigger `-Wdefaulted-function-deleted`, `-Wmismatched-tags`,
-`-Winconsistent-missing-override`, and `-Woverloaded-virtual`. These declarations belong to CNA,
-not this template. The Android build therefore remains intentionally red rather than disabling
-those diagnostics or carrying a broad shadow copy of dependency headers. Gradle configuration,
-debug resource/Java compilation, and release-signing task behavior can still be checked here; an
-APK build must be re-run when updating the CNA pin.
+The pinned CNA revision `6bba5562d66b2005057569373843be6c843ec8f1` does not finish an Android
+C-API build with NDK `29.0.14206865`. `modules/c-api/CMakeLists.txt` assigns
+`-Wall -Wextra -Werror -Wno-missing-field-initializers` to `cna_c_api`; the template adds none of
+those strict flags. The first reproducible arm64 failure is:
+
+- `modules/audio/include/Microsoft/Xna/Framework/Audio/AudioEngine.hpp:22,131` declares and befriends
+  `AudioCategory` as a `class`, while `AudioCategory.hpp:23` defines it as a `struct`
+  (`-Werror,-Wmismatched-tags`).
+
+Other concurrently compiled C-API translation units also fail because:
+
+- `modules/math/include/Microsoft/Xna/Framework/BoundingBox.hpp:18`,
+  `Plane.hpp:15`, and `BoundingFrustum.hpp:25` disagree on the `struct`/`class` tag for
+  `BoundingFrustum` (`-Werror,-Wmismatched-tags`);
+- `modules/graphics/include/Microsoft/Xna/Framework/Graphics/VertexPositionColorTexture.hpp:27`
+  explicitly defaults a constructor Clang deletes because `Color` has no default constructor
+  (`-Werror,-Wdefaulted-function-deleted`);
+- `modules/media/include/Microsoft/Xna/Framework/Media/Song.hpp:172,185` hides `Object::Equals` and
+  omits `override` on `GetHashCode` (`-Werror,-Woverloaded-virtual` and
+  `-Werror,-Winconsistent-missing-override`).
+
+These declarations and the strict target policy belong to CNA, not this template. The Android
+build therefore remains intentionally red rather than disabling diagnostics or carrying a broad
+shadow copy of dependency headers. The template narrows Gradle's native target request to `main`,
+so unrelated CNA tools are no longer requested, but `main` legitimately depends on `CNA::CApi`
+and still reaches the upstream failure.
+
+Before that failure, the pinned build completed debug resource processing, Java compilation,
+dexing, SDL/CMake configuration, and most arm64 native dependency compilation. AGP's generated
+model identifies the intended `libmain.so`, its `libcna_c_api.so` dependency, and SDL3 runtime;
+`HelloGameActivity` requests libraries `SDL3` and `main`, and Gradle declares both `arm64-v8a` and
+`x86_64`. On Android, `Program.c` includes SDL's public `SDL_main.h`; the pre-blocker CI check
+compiles that object and verifies it exports `SDL_main`, the function SDLActivity resolves, rather
+than a plain `main`. The blocker prevents linking those libraries and reaching APK packaging, so
+neither the packaged `.so` locations nor an installable APK is claimed as verified. Required CI
+exercises the strongest passing boundary and the signing negative contract. Re-run `assembleDebug`
+against a new candidate pin with the workflow's `verify_android_native` manual input, and make that
+step required only after CNA fixes these diagnostics.
 
 When updating the dependency baseline:
 

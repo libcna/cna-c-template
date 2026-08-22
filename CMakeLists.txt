@@ -30,6 +30,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CnaRenderers)
+include(CnaDependencyPin)
 
 message(STATUS "cna-template: ${PROJECT_NAME} -> ${CNA_TEMPLATE_APP_NAME}")
 message(STATUS "cna-template: platform ${CMAKE_SYSTEM_NAME}, "
@@ -50,11 +51,15 @@ message(STATUS "cna-template: platform ${CMAKE_SYSTEM_NAME}, "
 # Keep a command-line relative override as text until it can be resolved from
 # the documented base below. Declaring it PATH here would let CMake absolutize
 # it from the invoking process's working directory first.
+cna_template_dependency_pin(CNA
+    _cna_expected_repository _cna_dependency_directory _cna_expected_revision)
 set(CNA_ROOT_DIR "" CACHE STRING "Path to the CNA framework checkout")
+option(CNA_ALLOW_UNPINNED
+    "Acknowledge an intentional CNA compatibility test outside dependencies.lock" OFF)
 if(CNA_ROOT_DIR STREQUAL "")
     foreach(_cna_candidate IN ITEMS
-            "${CMAKE_CURRENT_SOURCE_DIR}/../cna"
-            "${CMAKE_CURRENT_SOURCE_DIR}/../../cna")
+            "${CMAKE_CURRENT_SOURCE_DIR}/../${_cna_dependency_directory}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../${_cna_dependency_directory}")
         if(EXISTS "${_cna_candidate}/CMakeLists.txt")
             set(CNA_ROOT_DIR "${_cna_candidate}" CACHE PATH
                 "Path to the CNA framework checkout" FORCE)
@@ -73,13 +78,20 @@ if(NOT EXISTS "${CNA_ROOT_DIR}/CMakeLists.txt")
     message(FATAL_ERROR
         "cna-c-template: CNA framework not found at '${CNA_ROOT_DIR}'.\n"
         "CNA is a separate sibling repository, not part of this template. It is\n"
-        "looked for at ../cna and ../../cna.\n"
-        "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && git clone https://github.com/openeggbert/cna.git\n"
+        "looked for at ../${_cna_dependency_directory} and "
+        "../../${_cna_dependency_directory}.\n"
+        "  cd ${CMAKE_CURRENT_SOURCE_DIR}/.. && "
+        "git clone https://github.com/${_cna_expected_repository}.git\n"
         "or pass -DCNA_ROOT_DIR=/path/to/cna to cmake. Relative overrides are\n"
         "resolved from the template repository root.\n"
         "README.md \"Prerequisites\" lists every checkout you need.")
 endif()
+file(REAL_PATH "${CNA_ROOT_DIR}" _cna_root_real)
+set(CNA_ROOT_DIR "${_cna_root_real}" CACHE PATH
+    "Path to the CNA framework checkout" FORCE)
 message(STATUS "cna-c-template: using CNA at ${CNA_ROOT_DIR}")
+cna_template_verify_dependency_checkout(
+    CNA "${CNA_ROOT_DIR}" "${CNA_ALLOW_UNPINNED}")
 
 # CNA-9 (module-layout half): older supported CNA revisions accidentally tested
 # the consumer's CMAKE_SOURCE_DIR for CNA's own legacy src/include directories.
@@ -379,14 +391,23 @@ target_include_directories(${_app} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/game/src"
 )
 
-# CNA is an INTERFACE umbrella already carrying every framework module, the
-# selected renderer target, the required Sharp Runtime component targets, the
-# public compile definitions and the public include directories. Linking either
-# a renderer or the legacy all-components SHARP_RUNTIME umbrella by hand is
-# obsolete. So is the old -Wl,--start-group wrapper: CNA declares its
-# static-library cycles on the targets themselves, and a linker group around an
-# INTERFACE library expands to nothing anyway.
-target_link_libraries(${_app} PRIVATE cna_c_api)
+# CNA::CApi is CNA's documented C-consumer target. It publishes the C headers
+# and keeps framework modules, renderer targets, Sharp Runtime components, and
+# their static-library cycles behind the shared ABI. The application therefore
+# must not assemble CNA's internal target graph itself.
+if(TARGET CNA::CApi)
+    target_link_libraries(${_app} PRIVATE CNA::CApi)
+elseif(TARGET cna_c_api)
+    message(WARNING
+        "cna-c-template: this CNA revision does not expose the public CNA::CApi "
+        "consumer target; falling back to legacy implementation target cna_c_api. "
+        "The pinned baseline provides CNA::CApi.")
+    target_link_libraries(${_app} PRIVATE cna_c_api)
+else()
+    message(FATAL_ERROR
+        "cna-c-template: CNA_BUILD_C_API is enabled, but CNA exposed neither "
+        "the public CNA::CApi target nor the legacy cna_c_api target.")
+endif()
 
 if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT EMSCRIPTEN)
     target_link_libraries(${_app} PRIVATE m)
@@ -484,7 +505,10 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
     enable_testing()
     add_test(NAME ${CNA_TEMPLATE_APP_NAME}Smoke COMMAND ${_app} --smoke-test)
     add_test(NAME ${CNA_TEMPLATE_APP_NAME}FailurePropagation
-        COMMAND ${_app} --smoke-test --simulate-draw-failure)
+        COMMAND ${CMAKE_COMMAND}
+            "-DTEST_EXECUTABLE=$<TARGET_FILE:${_app}>"
+            "-DTEST_WORKING_DIRECTORY=$<TARGET_FILE_DIR:${_app}>"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyFailurePropagation.cmake")
 
     # Label the test by what it needs from the environment, so CI can run the
     # display-free renderers with no X server at all and reserve xvfb-run for
@@ -502,8 +526,7 @@ if(CNA_TEMPLATE_BUILD_TESTS AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT CMAKE_CRO
         LABELS "${_labels}")
     set_tests_properties(${CNA_TEMPLATE_APP_NAME}FailurePropagation PROPERTIES
         TIMEOUT 30
-        LABELS "${_labels};failure-propagation"
-        WILL_FAIL TRUE)
+        LABELS "${_labels};failure-propagation")
 elseif(CNA_TEMPLATE_BUILD_TESTS)
     message(STATUS
         "cna-c-template: smoke tests are not registered for this target "

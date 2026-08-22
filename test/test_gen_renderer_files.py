@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -47,9 +48,48 @@ class RendererGeneratorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at least one platform"):
             self.generator.validate_manifest(malformed)
 
+    def test_manifest_validation_rejects_unknown_renderer_fields(self):
+        malformed = [dict(self.renderers[0])]
+        malformed[0]["pltaforms"] = malformed[0]["platforms"]
+        with self.assertRaisesRegex(ValueError, "unknown field.*pltaforms"):
+            self.generator.validate_manifest(malformed)
+
+    def test_manifest_validation_rejects_duplicate_experimental_platforms(self):
+        malformed = [dict(self.renderers[0])]
+        malformed[0]["experimental"] = ["web", "web"]
+        with self.assertRaisesRegex(ValueError, "experimental platform more than once"):
+            self.generator.validate_manifest(malformed)
+
+    def test_manifest_validation_rejects_duplicate_supported_platforms(self):
+        malformed = [dict(self.renderers[0])]
+        malformed[0]["platforms"] = ["linux", "linux"]
+        with self.assertRaisesRegex(ValueError, "lists a platform more than once"):
+            self.generator.validate_manifest(malformed)
+
+    def test_manifest_validation_rejects_duplicate_web_flags(self):
+        web_renderer = next(
+            renderer for renderer in self.renderers if renderer.get("webflags")
+        )
+        malformed = [dict(web_renderer)]
+        malformed[0]["webflags"] = [web_renderer["webflags"][0]] * 2
+        with self.assertRaisesRegex(ValueError, "web flag more than once"):
+            self.generator.validate_manifest(malformed)
+
+    def test_manifest_validation_rejects_unknown_top_level_fields(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            manifest = Path(temporary) / "renderers.json"
+            manifest.write_text(
+                json.dumps({"renderers": self.renderers, "renderres": []})
+            )
+            with mock.patch.object(self.generator, "MANIFEST", manifest):
+                with self.assertRaisesRegex(ValueError, "unknown top-level.*renderres"):
+                    self.generator.load_manifest()
+
     def test_cross_compiled_windows_presets_have_no_test_presets(self):
         presets = self.generator.build_presets(self.renderers)
         test_names = {preset["name"] for preset in presets["testPresets"]}
+        self.assertIn("directx11", test_names)
+        self.assertIn("directx12", test_names)
         self.assertNotIn("windows-directx11", test_names)
         self.assertNotIn("windows-directx12", test_names)
 
@@ -61,6 +101,13 @@ class RendererGeneratorTests(unittest.TestCase):
             )
             self.assertEqual("Darwin", metal["condition"]["rhs"])
 
+        for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
+            opengl1 = next(
+                preset for preset in presets[preset_kind] if preset["name"] == "opengl1"
+            )
+            self.assertEqual("inList", opengl1["condition"]["type"])
+            self.assertEqual(["Linux", "Windows"], opengl1["condition"]["list"])
+
         for preset_kind in ("configurePresets", "buildPresets"):
             windows = next(
                 preset
@@ -68,6 +115,80 @@ class RendererGeneratorTests(unittest.TestCase):
                 if preset["name"] == "windows-directx11"
             )
             self.assertEqual("Linux", windows["condition"]["rhs"])
+
+        for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
+            native_windows = next(
+                preset
+                for preset in presets[preset_kind]
+                if preset["name"] == "directx11"
+            )
+            self.assertEqual("Windows", native_windows["condition"]["rhs"])
+
+    def test_generated_preset_kinds_have_no_orphans_or_condition_drift(self):
+        presets = self.generator.build_presets(self.renderers)
+        configure = {
+            preset["name"]: preset
+            for preset in presets["configurePresets"]
+            if not preset.get("hidden")
+        }
+        build = {preset["name"]: preset for preset in presets["buildPresets"]}
+        tests = {preset["name"]: preset for preset in presets["testPresets"]}
+        self.assertEqual(set(configure), set(build))
+        self.assertLessEqual(set(tests), set(configure))
+        for name, preset in build.items():
+            self.assertEqual(name, preset["configurePreset"])
+            self.assertEqual(configure[name]["condition"], preset["condition"])
+        for name, preset in tests.items():
+            self.assertEqual(name, preset["configurePreset"])
+            self.assertEqual(configure[name]["condition"], preset["condition"])
+            self.assertEqual("error", preset["execution"]["noTestsAction"])
+
+    def test_host_condition_derives_every_desktop_platform_combination(self):
+        cases = {
+            ("linux",): {"Linux"},
+            ("windows",): {"Windows"},
+            ("macos",): {"Darwin"},
+            ("linux", "windows"): {"Linux", "Windows"},
+            ("linux", "macos"): {"Linux", "Darwin"},
+            ("windows", "macos"): {"Windows", "Darwin"},
+            ("linux", "windows", "macos"): {"Linux", "Windows", "Darwin"},
+        }
+        for platforms, expected_hosts in cases.items():
+            with self.subTest(platforms=platforms):
+                condition = self.generator.host_condition(list(platforms))
+                if condition["type"] == "equals":
+                    actual_hosts = {condition["rhs"]}
+                else:
+                    self.assertEqual("inList", condition["type"])
+                    actual_hosts = set(condition["list"])
+                self.assertEqual(expected_hosts, actual_hosts)
+
+    def test_web_route_is_host_gated_and_never_gets_a_test_preset(self):
+        presets = self.generator.build_presets(self.renderers)
+        for preset_kind in ("configurePresets", "buildPresets"):
+            webgl2 = next(
+                preset
+                for preset in presets[preset_kind]
+                if preset["name"] == "web-webgl2"
+            )
+            self.assertEqual("inList", webgl2["condition"]["type"])
+            self.assertEqual(
+                {"Linux", "Windows", "Darwin"}, set(webgl2["condition"]["list"])
+            )
+        self.assertNotIn(
+            "web-webgl2", {preset["name"] for preset in presets["testPresets"]}
+        )
+
+    def test_android_support_does_not_make_a_desktop_preset_host(self):
+        presets = self.generator.build_presets(self.renderers)
+        sdl = next(
+            preset
+            for preset in presets["configurePresets"]
+            if preset["name"] == "sdl-renderer"
+        )
+        self.assertEqual(
+            {"Linux", "Windows", "Darwin"}, set(sdl["condition"]["list"])
+        )
 
     def test_same_count_semantic_cna_drift_fails_check(self):
         canonical = [renderer["name"] for renderer in self.renderers]
@@ -105,6 +226,55 @@ class RendererGeneratorTests(unittest.TestCase):
         self.assertEqual([], json.loads(result.stdout))
 
 
+class CMakeRendererValidationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.generator = load_generator()
+        cls.renderer_names = [
+            renderer["name"] for renderer in cls.generator.load_manifest()
+        ]
+
+    def test_regex_metacharacters_reach_intentional_unknown_renderer_error(self):
+        canonical = " ".join(json.dumps(name) for name in self.renderer_names)
+        with tempfile.TemporaryDirectory() as temporary:
+            temporary_path = Path(temporary)
+            cna_root = temporary_path / "cna"
+            (cna_root / "cmake").mkdir(parents=True)
+            (cna_root / "cmake" / "RendererSelection.cmake").write_text(
+                "set_property(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS "
+                + canonical
+                + ")\n"
+            )
+            script = temporary_path / "validate.cmake"
+            script.write_text(
+                "cmake_minimum_required(VERSION 3.23)\n"
+                f'include("{REPO / "cmake" / "CnaRenderers.cmake"}")\n'
+                'cna_template_validate_renderer("${INVALID_RENDERER}" "${CNA_ROOT}")\n'
+            )
+
+            for invalid in ("[", "(", "*", ".", "+", "?", "\\"):
+                with self.subTest(invalid=invalid):
+                    result = subprocess.run(
+                        [
+                            "cmake",
+                            f"-DINVALID_RENDERER={invalid}",
+                            f"-DCNA_ROOT={cna_root}",
+                            "-P",
+                            str(script),
+                        ],
+                        cwd=REPO,
+                        text=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=False,
+                    )
+                    output = result.stdout + result.stderr
+                    self.assertNotEqual(0, result.returncode, output)
+                    self.assertIn("cna-template: unknown renderer", output)
+                    self.assertNotIn("Regular expression", output)
+                    self.assertNotIn("cannot compile", output)
+
+
 class DependencyPinTests(unittest.TestCase):
     def run_pins(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -122,6 +292,15 @@ class DependencyPinTests(unittest.TestCase):
         revision = self.run_pins("--revision", "CNA")
         self.assertEqual(0, revision.returncode, revision.stderr)
         self.assertRegex(revision.stdout.strip(), r"^[0-9a-f]{40}$")
+
+    def test_lock_file_exposes_repository_url_and_local_directory(self):
+        repository = self.run_pins("--repository", "CNA")
+        url = self.run_pins("--url", "CNA")
+        directory = self.run_pins("--directory", "CNA")
+        self.assertEqual(0, repository.returncode, repository.stderr)
+        self.assertEqual("openeggbert/cna", repository.stdout.strip())
+        self.assertEqual("https://github.com/openeggbert/cna.git", url.stdout.strip())
+        self.assertEqual("cna", directory.stdout.strip())
 
     def test_pin_tool_uses_shared_dependency_layout(self):
         spec = importlib.util.spec_from_file_location("dependency_pins", PINS_SCRIPT)

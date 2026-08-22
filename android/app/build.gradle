@@ -17,13 +17,56 @@ def resolveFromTemplateRoot = { Object value ->
     return candidate.canonicalFile
 }
 
+// dependencies.lock is shared with desktop CMake and CI. Each record owns the
+// repository identity, sibling directory, and audited revision in one place.
+def dependencyLockFile = new File(templateRootDir, "dependencies.lock")
+def requiredDependencyNames = [
+    "CNA", "SHARP_RUNTIME", "EASY_GL", "META_GL", "FREE_DIRECT"
+] as Set
+def dependencyPins = [:]
+dependencyLockFile.getText("UTF-8").readLines().eachWithIndex { rawLine, index ->
+    def line = rawLine.trim()
+    if (line.isEmpty() || line.startsWith("#")) {
+        return
+    }
+    def fields = line.split(/\|/, -1) as List
+    if (fields.size() != 4 ||
+            !(fields[0] ==~ /[A-Z][A-Z0-9_]*/) ||
+            !(fields[1] ==~ /[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/) ||
+            !(fields[2] ==~ /[A-Za-z0-9][A-Za-z0-9._-]*/) ||
+            fields[2] in [".", ".."] ||
+            !(fields[3] ==~ /[0-9a-f]{40}/)) {
+        throw new GradleException(
+            "Malformed dependency record at ${dependencyLockFile}:${index + 1}; " +
+            "expected NAME|OWNER/REPOSITORY|DIRECTORY|REVISION."
+        )
+    }
+    if (dependencyPins.containsKey(fields[0])) {
+        throw new GradleException(
+            "Duplicate dependency record ${fields[0]} in ${dependencyLockFile}."
+        )
+    }
+    dependencyPins[fields[0]] = [
+        repository: fields[1], directory: fields[2], revision: fields[3]
+    ]
+}
+def missingDependencyPins = requiredDependencyNames - dependencyPins.keySet()
+def unknownDependencyPins = dependencyPins.keySet() - requiredDependencyNames
+if (!missingDependencyPins.isEmpty() || !unknownDependencyPins.isEmpty()) {
+    throw new GradleException(
+        "Invalid dependency set in ${dependencyLockFile}: " +
+        "missing=${missingDependencyPins.sort()}, unknown=${unknownDependencyPins.sort()}."
+    )
+}
+def cnaPin = dependencyPins["CNA"]
+
 // Use the same dependency layout and order as root CMake and the renderer generator.
 // Relative -PcnaRootDir overrides are deliberately resolved from the template root,
 // never from the surprising android/app project directory.
 def cnaRootOverride = providers.gradleProperty("cnaRootDir").getOrNull()
 def cnaCandidates = [
-    new File(templateRootDir.parentFile, "cna").canonicalFile,
-    new File(templateRootDir.parentFile.parentFile, "cna").canonicalFile
+    new File(templateRootDir.parentFile, cnaPin.directory).canonicalFile,
+    new File(templateRootDir.parentFile.parentFile, cnaPin.directory).canonicalFile
 ]
 def cnaRootDir = cnaRootOverride != null
         ? resolveFromTemplateRoot(cnaRootOverride)
@@ -32,6 +75,78 @@ def cnaSharpRuntimeRootOverride = providers.gradleProperty("cnaSharpRuntimeRootD
 def cnaSharpRuntimeRootDir = cnaSharpRuntimeRootOverride != null
         ? resolveFromTemplateRoot(cnaSharpRuntimeRootOverride)
         : null
+def cnaAllowUnpinnedText = providers.gradleProperty("cnaAllowUnpinned").getOrElse("false")
+if (!(cnaAllowUnpinnedText ==~ /(?i:true|false)/)) {
+    throw new GradleException(
+        "-PcnaAllowUnpinned must be true or false, not '${cnaAllowUnpinnedText}'."
+    )
+}
+def cnaAllowUnpinned = cnaAllowUnpinnedText.toBoolean()
+
+if (!new File(cnaRootDir, ".git").exists()) {
+    logger.warn(
+        "cna-c-template: CNA at ${cnaRootDir} has no .git metadata; expected revision " +
+        "${cnaPin.revision} cannot be verified. This is an unverified source archive."
+    )
+} else {
+    def runGit = { List<String> arguments ->
+        try {
+            def command = ["git", "-C", cnaRootDir.absolutePath] + arguments
+            def process = new ProcessBuilder(command).redirectErrorStream(true).start()
+            def output = process.inputStream.getText("UTF-8").trim()
+            def status = process.waitFor()
+            return [available: true, status: status, output: output]
+        } catch (IOException exception) {
+            return [available: false, status: -1, output: exception.message]
+        }
+    }
+    def head = runGit(["rev-parse", "HEAD"])
+    if (!head.available) {
+        logger.warn(
+            "cna-c-template: Git is unavailable, so CNA at ${cnaRootDir} cannot be " +
+            "compared with expected revision ${cnaPin.revision}."
+        )
+    } else {
+        if (head.status != 0) {
+            throw new GradleException(
+                "Git metadata exists at ${cnaRootDir}, but HEAD could not be read: ${head.output}"
+            )
+        }
+        def status = runGit(["status", "--porcelain", "--untracked-files=normal"])
+        if (!status.available || status.status != 0) {
+            throw new GradleException(
+                "Git status failed for CNA at ${cnaRootDir}: ${status.output}"
+            )
+        }
+        def drift = []
+        if (head.output != cnaPin.revision) {
+            drift.add("revision is ${head.output}, expected ${cnaPin.revision}")
+        }
+        if (!status.output.isEmpty()) {
+            drift.add("worktree has local changes")
+        }
+        if (!drift.isEmpty()) {
+            def detail = drift.join("; ")
+            if (cnaAllowUnpinned) {
+                logger.warn(
+                    "cna-c-template: intentional unpinned CNA compatibility test at " +
+                    "${cnaRootDir}: ${detail}."
+                )
+            } else {
+                throw new GradleException(
+                    "CNA checkout drift at ${cnaRootDir}: ${detail}. Use the " +
+                    "${cnaPin.repository} checkout recorded in dependencies.lock, or " +
+                    "explicitly acknowledge a compatibility test with " +
+                    "-PcnaAllowUnpinned=true."
+                )
+            }
+        } else {
+            logger.lifecycle(
+                "cna-c-template: CNA matches dependencies.lock (${cnaPin.revision})"
+            )
+        }
+    }
+}
 
 // Override with -PcnaRenderer=OPENGLES3 to pick a renderer other than CNA's own
 // Android default (SDL_RENDERER). Not every renderer is Android-capable -- see
@@ -56,6 +171,7 @@ def generatedAssetsDir = file("$buildDir/generated/cnaTemplateAssets")
 android {
     namespace = "org.openeggbert.cnatemplate"
     compileSdkVersion 35
+    buildToolsVersion = "35.0.0"
     ndkVersion = "29.0.14206865"
 
     compileOptions {
@@ -76,7 +192,8 @@ android {
                 def cmakeArgs = [
                         "-DANDROID_PLATFORM=android-21",
                         "-DANDROID_STL=c++_static",
-                        "-DCNA_ROOT_DIR=${cnaRootDir}"
+                        "-DCNA_ROOT_DIR=${cnaRootDir}",
+                        "-DCNA_ALLOW_UNPINNED=${cnaAllowUnpinned ? 'ON' : 'OFF'}"
                 ]
                 if (cnaSharpRuntimeRootDir != null) {
                     cmakeArgs.add("-DCNA_SHARP_RUNTIME_ROOT=${cnaSharpRuntimeRootDir}")
@@ -86,6 +203,9 @@ android {
                 }
                 // Interpolated Groovy GStrings are not assignable to Java String[].
                 arguments(*cmakeArgs.collect { argument -> argument.toString() })
+                // Build only the APK library and its dependency closure, not CNA's
+                // unrelated command-line tools or packaging targets.
+                targets "main"
                 abiFilters 'arm64-v8a', 'x86_64'
             }
         }

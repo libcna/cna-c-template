@@ -16,9 +16,10 @@
 #
 # When updating, change only this file, regenerate renderer files if CNA's list
 # changed, and run the verification documented in README.md.
+# Record format: NAME|GITHUB_OWNER/REPOSITORY|LOCAL_DIRECTORY|40_HEX_REVISION
 
-CNA=6bba5562d66b2005057569373843be6c843ec8f1
-SHARP_RUNTIME=625476d5b5fff5fa89f392c3c9af8638ff237692
-EASY_GL=0b46d35c394a9fb6aea6a85c6587894b5013da33
-META_GL=571d3a62fe166b9781ac6193d137b12ff3757620
-FREE_DIRECT=934f72ff0c52902631fceeb52c006f3ed2767485
+CNA|openeggbert/cna|cna|6bba5562d66b2005057569373843be6c843ec8f1
+SHARP_RUNTIME|openeggbert/sharp-runtime|sharp-runtime|625476d5b5fff5fa89f392c3c9af8638ff237692
+EASY_GL|openeggbert/easy-gl|easy-gl|0b46d35c394a9fb6aea6a85c6587894b5013da33
+META_GL|openeggbert/meta-gl|meta-gl|571d3a62fe166b9781ac6193d137b12ff3757620
+FREE_DIRECT|openeggbert/free-direct|free-direct|934f72ff0c52902631fceeb52c006f3ed2767485

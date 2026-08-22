@@ -15,12 +15,17 @@ mkdir cna-workspace
 cd cna-workspace
 
 git clone https://github.com/openeggbert/cna-c-template.git
-git clone https://github.com/openeggbert/cna.git
-git clone https://github.com/openeggbert/sharp-runtime.git
+git clone "$(python3 cna-c-template/tools/dependency_pins.py --url CNA)" \
+    "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)"
+git clone "$(python3 cna-c-template/tools/dependency_pins.py --url SHARP_RUNTIME)" \
+    "$(python3 cna-c-template/tools/dependency_pins.py --directory SHARP_RUNTIME)"
 
-git -C cna checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision CNA)"
-git -C sharp-runtime checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision SHARP_RUNTIME)"
-git -C cna submodule update --init \
+git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)" \
+    checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision CNA)"
+git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory SHARP_RUNTIME)" \
+    checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision SHARP_RUNTIME)"
+git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)" \
+    submodule update --init \
     third_party/SDL third_party/SDL_image third_party/SDL_mixer
 
 python3 cna-c-template/tools/dependency_pins.py \
@@ -29,21 +34,30 @@ python3 cna-c-template/tools/dependency_pins.py \
 cd cna-c-template
 cmake --preset headless
 cmake --build --preset headless -j3
+python3 tools/verify_ctest_contract.py --test-dir build-headless \
+    --expect HelloGameSmoke HelloGameFailurePropagation
 ctest --preset headless
 ```
 
-`headless` needs no GPU, window, or display server. The test preset runs two tests: a successful
-three-frame smoke run and a deliberate draw-failure regression whose non-zero exit is required.
+`headless` needs no GPU, window, or display server. The test preset runs exactly two tests: a
+successful three-frame smoke run and a deliberate draw failure. The latter only passes after the
+draw callback injects `CNA_RESULT_INVALID_HANDLE`, the game loop returns `CNA_RESULT_CALLBACK`,
+the game handle is released while preserving that callback result, and the test-only process status
+is exactly 86; an arbitrary failure is rejected.
 
 For a visible portable window, use the `sdl-renderer` preset. `opengles3` additionally needs
 `easy-gl` and `meta-gl` beside CNA:
 
 ```bash
 cd ..
-git clone https://github.com/openeggbert/easy-gl.git
-git clone https://github.com/openeggbert/meta-gl.git
-git -C easy-gl checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision EASY_GL)"
-git -C meta-gl checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision META_GL)"
+git clone "$(python3 cna-c-template/tools/dependency_pins.py --url EASY_GL)" \
+    "$(python3 cna-c-template/tools/dependency_pins.py --directory EASY_GL)"
+git clone "$(python3 cna-c-template/tools/dependency_pins.py --url META_GL)" \
+    "$(python3 cna-c-template/tools/dependency_pins.py --directory META_GL)"
+git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory EASY_GL)" \
+    checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision EASY_GL)"
+git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory META_GL)" \
+    checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision META_GL)"
 python3 cna-c-template/tools/dependency_pins.py \
     --dependencies-dir . --check CNA SHARP_RUNTIME EASY_GL META_GL
 cd cna-c-template
@@ -72,6 +86,9 @@ repository. This supports both an ordinary sibling workspace and this repository
 `-PcnaRootDir=/path/to/cna` in Gradle. Relative overrides are resolved from the template root.
 Android also accepts `-PcnaSharpRuntimeRootDir=/path/to/sharp-runtime` when CNA and sharp-runtime
 are not siblings; desktop CMake exposes the equivalent `CNA_SHARP_RUNTIME_ROOT` cache variable.
+Every CNA Git checkout selected by CMake or Gradle is compared with the lock during configuration.
+See [Dependency policy](#dependency-policy) for the explicit compatibility-test opt-in and
+source-archive behavior.
 
 ## Building
 
@@ -91,10 +108,11 @@ cmake --build --preset sdl-renderer
 ctest --preset sdl-renderer
 ```
 
-The `windows-directx11` and `windows-directx12` presets are MinGW cross-builds from Linux. They
-have build presets but intentionally no CTest presets because Linux cannot execute the resulting
-Windows binaries directly. If Wine and the required runtime DLLs are available, run the produced
-`.exe --smoke-test` explicitly and inspect its exit status.
+On Windows, `directx11` and `directx12` are native configure/build/test presets. The separate
+`windows-directx11` and `windows-directx12` presets are MinGW cross-builds from Linux. They have
+build presets but intentionally no CTest presets because Linux cannot execute the resulting Windows
+binaries directly. If Wine and the required runtime DLLs are available, run the produced executable
+with `--smoke-test` explicitly and inspect its exit status.
 
 For web builds, activate Emscripten so `EMSDK` is set; the generated preset already supplies the
 toolchain file:
@@ -105,12 +123,17 @@ cmake --build --preset web-webgl2
 ```
 
 Web presets also omit CTest presets because the output requires a browser runtime.
+Native preset visibility is derived from every desktop platform in `cmake/renderers.json`: for
+example, Linux + Windows renderers are hidden on macOS, while Metal is shown only on macOS.
+Configure, build, and runnable test presets carry the same condition, so unsupported or orphan
+presets do not leak through inheritance. Android uses Gradle rather than desktop CMake presets.
 
 ## Android
 
 Android builds require JDK 17 or newer plus these Android SDK components:
 
 - Android platform / compile SDK 35;
+- Android build-tools `35.0.0`;
 - NDK `29.0.14206865`;
 - Android SDK CMake `4.1.2`.
 
@@ -126,12 +149,17 @@ Debug builds require no release credentials. CNA uses its Android default render
 (`SDL_RENDERER`) unless `-PcnaRenderer=OPENGLES3` or another Android-capable renderer is supplied.
 The EasyGL renderers still require `easy-gl` and `meta-gl` beside CNA.
 
-The pinned CNA revision currently has an upstream native-build blocker under NDK Clang: its strict
-C-API target promotes diagnostics in CNA headers (including an implicitly deleted default
-constructor, mismatched class/struct declarations, and missing override annotations) to errors.
-Gradle configuration, resource/Java compilation, and signing behavior remain verifiable, but the
-APK cannot complete until CNA fixes those dependency-side diagnostics. This template deliberately
-does not suppress them or rewrite the CNA checkout; see [docs/compatibility.md](docs/compatibility.md).
+The pinned CNA revision currently has an upstream native-build blocker under NDK Clang. Its own
+strict C-API target promotes CNA header diagnostics (`-Wmismatched-tags`,
+`-Wdefaulted-function-deleted`, `-Woverloaded-virtual`, and
+`-Winconsistent-missing-override`) to errors. Required CI therefore validates the Wrapper, Gradle
+configuration/help/tasks, debug Java/resources, the arm64 CMake model and exported `SDL_main` entry
+object, and the exact release-signing negative path. It does not claim an APK: native compilation
+stops in `cna_c_api` before `libmain.so` can link or APK packaging can run. This template
+deliberately does not suppress those diagnostics or rewrite CNA; see
+[docs/compatibility.md](docs/compatibility.md) for exact files and evidence. A manual CI dispatch
+with `verify_android_native` enabled runs the unsuppressed `assembleDebug` path; make that step
+required when the locked CNA baseline compiles cleanly.
 
 ### Android release signing
 
@@ -155,14 +183,19 @@ have published SHA-256 values; `distributionSha256Sum` pins the latter in
 
 ## Dependency policy
 
-`dependencies.lock` is the authoritative compatibility baseline. The quick start checks out its
-exact revisions, `tools/dependency_pins.py --check` verifies revision and worktree cleanliness, and
-CI reads the same file before checking CNA's renderer list. There is no duplicated workflow pin.
+`dependencies.lock` is the authoritative compatibility baseline. Each record contains the GitHub
+repository, local directory, and exact revision. The quick start consumes all three fields,
+`tools/dependency_pins.py --check` verifies revision and worktree cleanliness, and CI reads the same
+records for checkout. There is no duplicated workflow repository or revision pin.
 
-Using a newer sibling checkout is an intentional compatibility test, not an implicit fallback.
-Update the lock only after the generator, both smoke tests, and relevant platform builds pass. The
-template-side compatibility measures and their upstream status are documented in
-[docs/compatibility.md](docs/compatibility.md).
+Ordinary CMake and Gradle configuration also inspect CNA. A dirty or different Git revision fails
+unless an intentional compatibility test is explicitly acknowledged with
+`-DCNA_ALLOW_UNPINNED=ON` (CMake) or `-PcnaAllowUnpinned=true` (Gradle; it forwards the matching
+CMake option). Relative and absolute root overrides remain supported, but an override is not itself
+an acknowledgement. A source archive without `.git` metadata remains usable and produces a clear
+warning that its pin cannot be verified; Git is not mandatory for that consumption mode. Update the
+lock only after the generator, both smoke tests, and relevant platform builds pass. The template-side
+compatibility measures and upstream status are documented in [docs/compatibility.md](docs/compatibility.md).
 
 ## Renderer metadata
 
@@ -193,9 +226,14 @@ copied next to native executables and packaged as Android assets.
 ## Repository checks
 
 ```bash
-python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py
+python3 -m py_compile tools/dependency_pins.py tools/gen_renderer_files.py \
+    tools/verify_ctest_contract.py
 python3 -m unittest discover -s test -v
 python3 tools/gen_renderer_files.py --check
+# After configuring build-headless:
+python3 tools/verify_ctest_contract.py --test-dir build-headless \
+    --expect HelloGameSmoke HelloGameFailurePropagation
+ctest --test-dir build-headless --output-on-failure
 git diff --check
 ```
 

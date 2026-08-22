@@ -27,6 +27,13 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    # Direct script execution puts tools/ on sys.path.
+    from dependency_pins import load_pins
+except ModuleNotFoundError:
+    # Unit-test/import usage puts the repository root on sys.path instead.
+    from tools.dependency_pins import load_pins
+
 REPO = Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "cmake" / "renderers.json"
 PRESETS = REPO / "CMakePresets.json"
@@ -78,10 +85,30 @@ REQUIRED_FIELDS = {
     "preset",
     "notes",
 }
+OPTIONAL_FIELDS = {"experimental", "webflags"}
+TOP_LEVEL_FIELDS = {"$comment", "renderers"}
+DESKTOP_PLATFORM_HOSTS = {
+    "linux": "Linux",
+    "windows": "Windows",
+    "macos": "Darwin",
+}
 
 
 def load_manifest() -> list[dict]:
     data = json.loads(MANIFEST.read_text())
+    if not isinstance(data, dict):
+        raise ValueError("cmake/renderers.json must contain a top-level object")
+    unknown_top_level = data.keys() - TOP_LEVEL_FIELDS
+    if unknown_top_level:
+        raise ValueError(
+            "cmake/renderers.json has unknown top-level field(s): "
+            + ", ".join(sorted(unknown_top_level))
+        )
+    comments = data.get("$comment", [])
+    if not isinstance(comments, list) or not all(
+        isinstance(comment, str) for comment in comments
+    ):
+        raise ValueError("cmake/renderers.json field '$comment' must be an array of strings")
     renderers = data.get("renderers")
     if not isinstance(renderers, list) or not renderers:
         raise ValueError("cmake/renderers.json must contain a non-empty 'renderers' array")
@@ -99,6 +126,12 @@ def validate_manifest(renderers: list[dict]) -> None:
         if missing:
             raise ValueError(
                 f"renderer entry {index} is missing field(s): {', '.join(sorted(missing))}"
+            )
+        unknown = renderer.keys() - REQUIRED_FIELDS - OPTIONAL_FIELDS
+        if unknown:
+            raise ValueError(
+                f"renderer entry {index} has unknown field(s): "
+                + ", ".join(sorted(unknown))
             )
 
         name = renderer["name"]
@@ -164,6 +197,8 @@ def validate_manifest(renderers: list[dict]) -> None:
                 f"renderer {name} has unknown experimental platform(s): "
                 + ", ".join(sorted(unknown_experimental))
             )
+        if len(experimental) != len(set(experimental)):
+            raise ValueError(f"renderer {name} lists an experimental platform more than once")
         overlap = set(platforms) & set(experimental)
         if overlap:
             raise ValueError(
@@ -176,13 +211,16 @@ def validate_manifest(renderers: list[dict]) -> None:
             isinstance(flag, str) and flag for flag in webflags
         ):
             raise ValueError(f"renderer {name} field 'webflags' must be an array of strings")
+        if len(webflags) != len(set(webflags)):
+            raise ValueError(f"renderer {name} lists a web flag more than once")
         if webflags and "web" not in platforms:
             raise ValueError(f"renderer {name} has webflags but is not supported on web")
 
 
 def default_cna_candidates() -> tuple[Path, Path]:
     """The dependency layout shared by CMake, Android, and this generator."""
-    return REPO.parent / "cna", REPO.parent.parent / "cna"
+    directory = load_pins()["CNA"].directory
+    return REPO.parent / directory, REPO.parent.parent / directory
 
 
 def find_cna_root(explicit: Path | None) -> Path | None:
@@ -222,6 +260,30 @@ def canonical_from_cna(cna_root: Path) -> list[str]:
 
 def slug(name: str) -> str:
     return name.lower().replace("_", "-")
+
+
+def host_condition(platforms: list[str]) -> dict:
+    """Build a literal preset condition from supported desktop platform tokens."""
+    hosts = [
+        host
+        for platform, host in DESKTOP_PLATFORM_HOSTS.items()
+        if platform in platforms
+    ]
+    if not hosts:
+        raise ValueError(
+            "cannot generate a native preset without a supported desktop host"
+        )
+    if len(hosts) == 1:
+        return {
+            "type": "equals",
+            "lhs": "${hostSystemName}",
+            "rhs": hosts[0],
+        }
+    return {
+        "type": "inList",
+        "string": "${hostSystemName}",
+        "list": hosts,
+    }
 
 
 def check_against_cna(
@@ -274,6 +336,7 @@ def build_presets(renderers: list[dict]) -> dict:
             "inherits": "release",
             # Lets `cmake --preset web-*` work directly instead of via emcmake.
             "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+            "condition": host_condition(list(DESKTOP_PLATFORM_HOSTS)),
         },
         {
             "name": "mingw-base",
@@ -290,36 +353,15 @@ def build_presets(renderers: list[dict]) -> dict:
     build = []
     test = []
 
-    for renderer in renderers:
-        if not renderer.get("preset"):
-            continue
-
-        name = renderer["name"]
+    def add_renderer_route(
+        renderer: dict,
+        preset_name: str,
+        inherits: str,
+        condition: dict,
+        runnable: bool,
+    ) -> None:
         platforms = renderer["platforms"]
-        preset_name = slug(name)
-        inherits = "base"
-        condition = None
-
-        # A renderer that can only ever target one platform gets a preset shaped
-        # for that platform, so the preset is usable rather than merely present.
-        if platforms == ["web"]:
-            preset_name = f"web-{slug(name)}"
-            inherits = "web-base"
-        elif platforms == ["windows"]:
-            preset_name = f"windows-{slug(name)}"
-            inherits = "mingw-base"
-            condition = {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux",
-            }
-        elif platforms == ["macos"]:
-            condition = {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Darwin",
-            }
-
+        name = renderer["name"]
         entry = {
             "name": preset_name,
             # First sentence of the note, split on ". " so "GLES 2.0" survives.
@@ -332,34 +374,71 @@ def build_presets(renderers: list[dict]) -> dict:
             "inherits": inherits,
             "binaryDir": "${sourceDir}/build-" + preset_name,
             "cacheVariables": {"CNA_GRAPHICS_RENDERER": name},
+            "condition": condition,
         }
-        if condition:
-            entry["condition"] = condition
-
         configure.append(entry)
-        build_entry = {"name": preset_name, "configurePreset": preset_name}
-        if condition:
-            build_entry["condition"] = condition
-        build.append(build_entry)
-
-        # Web output needs a browser and the Windows-only presets cross-compile
-        # with MinGW on Linux. Neither can be executed directly by CTest here.
-        if platforms != ["web"] and inherits != "mingw-base":
-            test_entry = {
+        build.append(
+            {
                 "name": preset_name,
                 "configurePreset": preset_name,
-                "output": {"outputOnFailure": True},
-                "filter": {
-                    "include": {
-                        "label": "headless"
-                        if renderer["display"] == "none"
-                        else "display"
-                    }
-                },
+                "condition": condition,
             }
-            if condition:
-                test_entry["condition"] = condition
-            test.append(test_entry)
+        )
+
+        if runnable:
+            test.append(
+                {
+                    "name": preset_name,
+                    "configurePreset": preset_name,
+                    "output": {"outputOnFailure": True},
+                    "execution": {"noTestsAction": "error"},
+                    "filter": {
+                        "include": {
+                            "label": "headless"
+                            if renderer["display"] == "none"
+                            else "display"
+                        }
+                    },
+                    "condition": condition,
+                }
+            )
+
+    for renderer in renderers:
+        if not renderer.get("preset"):
+            continue
+
+        platforms = renderer["platforms"]
+        if platforms == ["web"]:
+            # Emscripten output cannot run directly under the configuring host.
+            add_renderer_route(
+                renderer,
+                f"web-{slug(renderer['name'])}",
+                "web-base",
+                host_condition(list(DESKTOP_PLATFORM_HOSTS)),
+                False,
+            )
+            continue
+
+        # Native routes derive visibility from every declared desktop target
+        # platform. Android is configured by Gradle and is deliberately ignored.
+        add_renderer_route(
+            renderer,
+            slug(renderer["name"]),
+            "base",
+            host_condition(platforms),
+            True,
+        )
+
+        if platforms == ["windows"]:
+            # Retain the convenient Linux-to-Windows route as a separate preset;
+            # unlike the native Windows route, its binaries are not runnable here.
+            add_renderer_route(
+                renderer,
+                f"windows-{slug(renderer['name'])}",
+                "mingw-base",
+                host_condition(["linux"]),
+                False,
+            )
 
     return {
         "version": 3,
@@ -477,8 +556,16 @@ def build_doc(renderers: list[dict]) -> str:
     add("```")
     add("")
     add(
-        "Web presets and the `windows-directx*` MinGW cross-build presets intentionally have no "
-        "CTest preset because their binaries cannot execute directly on the configuring host."
+        "Native configure, build, and runnable test presets all receive the same host condition, "
+        "derived from every supported desktop platform above. Android uses Gradle instead. Web "
+        "presets are cross-build routes available on Linux, Windows, and macOS hosts. Runnable "
+        "test presets treat zero discovered tests as an error."
+    )
+    add("")
+    add(
+        "Windows-only renderers have native Windows presets plus `windows-directx*` MinGW "
+        "cross-build routes on Linux. Web and MinGW routes intentionally have no CTest preset "
+        "because their binaries cannot execute directly on the configuring host."
     )
     add("")
 

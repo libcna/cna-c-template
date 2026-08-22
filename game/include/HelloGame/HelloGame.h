@@ -17,6 +17,13 @@
 bool HelloGame_Check(CNA_Result result, const char* what);
 
 /**
+ * @brief Reports whether the test-only draw failure was reached and injected.
+ * @param result Receives the exact CNA result returned at the injection site when non-null.
+ * @return true only after the simulated draw path executed.
+ */
+bool HelloGame_GetInjectedDrawFailure(CNA_Result* result);
+
+/**
  * @brief Creates the HelloGame instance.
  * @param smokeTest If true, the game will exit after a few frames.
  * @param simulateDrawFailure If true, the first draw injects a failed CNA call for regression testing.
@@ -27,7 +34,8 @@ CNA_Handle HelloGame_Create(bool smokeTest, bool simulateDrawFailure);
 /**
  * @brief Destroys the HelloGame instance.
  * @param game The game handle to destroy.
- * @return The first resource-release or game-destruction failure, if any.
+ * @return The first resource-release or game-destruction result. CNA_RESULT_CALLBACK may mean
+ * the game was released successfully while preserving an earlier lifecycle callback failure.
  */
 CNA_Result HelloGame_Destroy(CNA_Handle game);
 
