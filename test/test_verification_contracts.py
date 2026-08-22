@@ -105,6 +105,14 @@ class CTestContractTests(unittest.TestCase):
         self.assertIn('-DCNA_TEMPLATE_APP_NAME="$CNA_TEMPLATE_CI_APP_NAME"', workflow)
         self.assertNotIn("./HelloGame", workflow)
 
+    def test_ci_uses_the_verified_strict_linux_compiler_baseline(self):
+        workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+        headless_job = workflow.split("  android-gradle-configuration:", 1)[0]
+        self.assertIn("runs-on: ubuntu-24.04", headless_job)
+        self.assertIn("CC: gcc-14", headless_job)
+        self.assertIn("CXX: g++-14", headless_job)
+        self.assertNotIn("Wno-error", headless_job)
+
     def test_ci_installs_the_linux_headers_required_by_pinned_cna(self):
         workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
         headless_job = workflow.split("  android-gradle-configuration:", 1)[0]

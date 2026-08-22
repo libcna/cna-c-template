@@ -16,10 +16,15 @@ permissions:
 
 jobs:
   pinned-headless-and-structure:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # Exercise the documented application-name customization on every run.
       CNA_TEMPLATE_CI_APP_NAME: CnaTemplateCiApp
+      # GCC 13 diagnoses pinned CNA media Equals overloads under its own
+      # cna_c_api -Werror policy. GCC 14 is the verified strict baseline; do
+      # not suppress the upstream diagnostic in this consumer template.
+      CC: gcc-14
+      CXX: g++-14
     steps:
       - name: Check out template
         uses: actions/checkout@v4

@@ -79,6 +79,11 @@ configures `CNA_ENABLE_DRACO=OFF` and reports that decision.
 | CNA submodules | `third_party/SDL`, `SDL_image`, and `SDL_mixer`; `draco` is optional here and ENet is tracked normally |
 | Renderer SDKs | See the dependency column in [docs/renderers.md](docs/renderers.md) |
 
+The verified pinned Linux baseline uses GCC 14. The pinned CNA C-API target does not compile under
+GCC 13 because its own `-Werror` policy rejects hidden media `Equals` overloads; this template does
+not suppress that diagnostic. See [docs/compatibility.md](docs/compatibility.md) for the exact
+upstream boundary.
+
 CMake and Android use the same CNA discovery order: `../cna`, then `../../cna`, relative to this
 repository. This supports both an ordinary sibling workspace and this repository living under an
 `_bindings/` directory. Override discovery with `-DCNA_ROOT_DIR=/path/to/cna` in CMake or
