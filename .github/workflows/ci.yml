@@ -85,6 +85,13 @@ jobs:
           cmake --list-presets=build
           cmake --list-presets=test
 
+      - name: Install pinned CNA's required Linux SDL headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libx11-dev \
+            libxext-dev
+
       - name: Build pinned HEADLESS baseline
         run: |
           cmake -S . -B build-ci-headless -G Ninja \
@@ -142,6 +149,20 @@ jobs:
       - name: Check out template
         uses: actions/checkout@v4
 
+      # setup-gradle validates every Wrapper JAR present in the workspace. Run
+      # it before checking out CNA, whose own example/third-party projects have
+      # upstream wrappers outside this template's integrity contract.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle and validate the template Wrapper
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: true
+
       - name: Read authoritative Android dependency pins
         id: pins
         run: |
@@ -164,17 +185,6 @@ jobs:
           repository: ${{ steps.pins.outputs.sharp_runtime_repository }}
           ref: ${{ steps.pins.outputs.sharp_runtime }}
           path: _dependencies/sharp-runtime
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle and validate the Wrapper
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          build-root-directory: android
 
       - name: Install the documented Android toolchain
         uses: android-actions/setup-android@v3

@@ -105,6 +105,34 @@ class CTestContractTests(unittest.TestCase):
         self.assertIn('-DCNA_TEMPLATE_APP_NAME="$CNA_TEMPLATE_CI_APP_NAME"', workflow)
         self.assertNotIn("./HelloGame", workflow)
 
+    def test_ci_installs_the_headers_required_by_pinned_cna_sdl(self):
+        workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+        headless_job = workflow.split("  android-gradle-configuration:", 1)[0]
+        self.assertIn("libx11-dev", headless_job)
+        self.assertIn("libxext-dev", headless_job)
+        self.assertLess(
+            headless_job.index("sudo apt-get install"),
+            headless_job.index("- name: Build pinned HEADLESS baseline"),
+        )
+
+    def test_android_wrapper_validation_precedes_dependency_checkouts(self):
+        workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+        android_job = workflow.split("  android-gradle-configuration:", 1)[1]
+        wrapper_validation = android_job.index(
+            "uses: gradle/actions/setup-gradle@v6"
+        )
+        cna_checkout = android_job.index("path: _dependencies/cna")
+        sharp_runtime_checkout = android_job.index(
+            "path: _dependencies/sharp-runtime"
+        )
+        self.assertLess(wrapper_validation, cna_checkout)
+        self.assertLess(wrapper_validation, sharp_runtime_checkout)
+        self.assertIn("validate-wrappers: true", android_job[:cna_checkout])
+
+    def test_ci_uses_only_supported_setup_gradle_inputs(self):
+        workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+        self.assertNotIn("build-root-directory:", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
