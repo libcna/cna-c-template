@@ -40,6 +40,11 @@ PRESETS = REPO / "CMakePresets.json"
 RENDERER_DOC = REPO / "docs" / "renderers.md"
 
 # Where CNA's canonical list lives, relative to a CNA checkout.
+# Current CNA keeps the public inventory in cmake/RendererIdentities.cmake (RRC-018 moved it
+# there and retired the rest); older checkouts spelled it as the cache variable's STRINGS in
+# RendererSelection.cmake. Read the registry first, the STRINGS line only as a fallback.
+CNA_IDENTITIES_FILE = Path("cmake") / "RendererIdentities.cmake"
+CNA_IDENTITIES_RE = re.compile(r"set\(CNA_RENDERER_PUBLIC_IDENTITIES\s+([A-Z0-9_\s]+)\)")
 CNA_RENDERER_FILE = Path("cmake") / "RendererSelection.cmake"
 CNA_STRINGS_RE = re.compile(
     r'set_property\(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS((?:\s+"[A-Z0-9_]+")+)\)'
@@ -243,16 +248,27 @@ def find_cna_root(explicit: Path | None) -> Path | None:
 
 def canonical_from_cna(cna_root: Path) -> list[str]:
     """Read CNA's own renderer list, failing if its declared format changed."""
+    identities = cna_root / CNA_IDENTITIES_FILE
     path = cna_root / CNA_RENDERER_FILE
-    if not path.is_file():
-        raise ValueError(f"CNA renderer selection file is missing: {path}")
-    match = CNA_STRINGS_RE.search(path.read_text())
-    if not match:
-        raise ValueError(
-            "could not parse CNA's canonical renderer list from "
-            f"{path}; update CNA_STRINGS_RE instead of silently skipping the cross-check"
-        )
-    names = re.findall(r'"([A-Z0-9_]+)"', match.group(1))
+    if identities.is_file():
+        match = CNA_IDENTITIES_RE.search(identities.read_text())
+        if not match:
+            raise ValueError(
+                "could not parse CNA_RENDERER_PUBLIC_IDENTITIES from "
+                f"{identities}; update CNA_IDENTITIES_RE instead of silently skipping the cross-check"
+            )
+        names = match.group(1).split()
+        path = identities
+    else:
+        if not path.is_file():
+            raise ValueError(f"CNA renderer selection file is missing: {path}")
+        match = CNA_STRINGS_RE.search(path.read_text())
+        if not match:
+            raise ValueError(
+                "could not parse CNA's canonical renderer list from "
+                f"{path}; update CNA_STRINGS_RE instead of silently skipping the cross-check"
+            )
+        names = re.findall(r'"([A-Z0-9_]+)"', match.group(1))
     if len(names) != len(set(names)):
         raise ValueError(f"CNA's canonical renderer list contains a duplicate name: {path}")
     return names

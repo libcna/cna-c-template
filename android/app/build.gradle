@@ -21,7 +21,7 @@ def resolveFromTemplateRoot = { Object value ->
 // repository identity, sibling directory, and audited revision in one place.
 def dependencyLockFile = new File(templateRootDir, "dependencies.lock")
 def requiredDependencyNames = [
-    "CNA", "SHARP_RUNTIME", "EASY_GL", "META_GL", "FREE_DIRECT"
+    "CNA", "SHARP_RUNTIME", "EASY_GL", "META_GL"
 ] as Set
 def dependencyPins = [:]
 dependencyLockFile.getText("UTF-8").readLines().eachWithIndex { rawLine, index ->
@@ -171,10 +171,8 @@ verifyPinnedCheckout("SHARP_RUNTIME", cnaSharpRuntimeRootDir)
 // root CMake independently verifies the targets actually consumed, including
 // CNA's platform default when no -PcnaRenderer value was supplied.
 def rendererDependencyNames = []
-if (cnaRenderer in ["OPENGLES2", "OPENGLES3", "OPENGL33", "WEBGL1", "WEBGL2"]) {
+if (cnaRenderer in ["OPENGLES3", "OPENGL33", "WEBGL2"]) {
     rendererDependencyNames.addAll(["EASY_GL", "META_GL"])
-} else if (cnaRenderer == "FREEDIRECT") {
-    rendererDependencyNames.add("FREE_DIRECT")
 }
 rendererDependencyNames.each { dependencyName ->
     def pin = dependencyPins[dependencyName]

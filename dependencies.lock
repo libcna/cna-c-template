@@ -1,4 +1,4 @@
-# Compatibility baseline for cna-template.
+# Compatibility baseline for cna-c-template.
 #
 # These are the exact revisions this template targets as its reproducible
 # baseline. tools/dependency_pins.py is the parser used by setup instructions
@@ -10,16 +10,19 @@
 #
 # Which of these you actually need depends on the renderer you select:
 #   CNA, SHARP_RUNTIME   always
-#   EASY_GL, META_GL     the five GL renderers (OPENGLES2/OPENGLES3/OPENGL33/WEBGL1/WEBGL2)
-#   FREE_DIRECT          FREEDIRECT only
+#   EASY_GL, META_GL     the three EasyGL renderers (OPENGLES3/OPENGL33/WEBGL2)
 # See docs/renderers.md for the full per-renderer dependency column.
+#
+# The pinned revisions are the released tags: CNA v0.1.0, sharp-runtime v0.1.0,
+# easy-gl v0.1.1 and meta-gl v0.4.1. CNA 0.1.0 itself refuses a sibling that
+# declares another version (cna/cmake/DependencyVersions.cmake), so these four
+# must move together.
 #
 # When updating, change only this file, regenerate renderer files if CNA's list
 # changed, and run the verification documented in README.md.
 # Record format: NAME|GITHUB_OWNER/REPOSITORY|LOCAL_DIRECTORY|40_HEX_REVISION
 
-CNA|openeggbert/cna|cna|6bba5562d66b2005057569373843be6c843ec8f1
-SHARP_RUNTIME|openeggbert/sharp-runtime|sharp-runtime|625476d5b5fff5fa89f392c3c9af8638ff237692
-EASY_GL|openeggbert/easy-gl|easy-gl|0b46d35c394a9fb6aea6a85c6587894b5013da33
-META_GL|openeggbert/meta-gl|meta-gl|571d3a62fe166b9781ac6193d137b12ff3757620
-FREE_DIRECT|openeggbert/free-direct|free-direct|934f72ff0c52902631fceeb52c006f3ed2767485
+CNA|libcna/cna|cna|10a4ef1cb4cd832f761536d77588000104947f8d
+SHARP_RUNTIME|libcna/sharp-runtime|sharp-runtime|c20373bae5be1f02d1fe2fa33c4cbba8ad05e4a0
+EASY_GL|libcna/easy-gl|easy-gl|f4d6afaf16cdc7e7e73130950bc45e6d865b41bd
+META_GL|libcna/meta-gl|meta-gl|dd3b30055d55fdc42240de7af248259338256992

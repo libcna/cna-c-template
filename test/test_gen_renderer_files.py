@@ -97,9 +97,9 @@ class RendererGeneratorTests(unittest.TestCase):
         presets = self.generator.build_presets(self.renderers)
         test_names = {preset["name"] for preset in presets["testPresets"]}
         self.assertIn("directx11", test_names)
-        self.assertIn("directx12", test_names)
+        self.assertIn("directx9", test_names)
         self.assertNotIn("windows-directx11", test_names)
-        self.assertNotIn("windows-directx12", test_names)
+        self.assertNotIn("windows-directx9", test_names)
 
     def test_native_build_and_test_presets_select_matching_debug_configuration(self):
         presets = self.generator.build_presets(self.renderers)
@@ -170,11 +170,11 @@ class RendererGeneratorTests(unittest.TestCase):
             self.assertEqual("Darwin", metal["condition"]["rhs"])
 
         for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
-            opengl1 = next(
-                preset for preset in presets[preset_kind] if preset["name"] == "opengl1"
+            vulkan = next(
+                preset for preset in presets[preset_kind] if preset["name"] == "vulkan"
             )
-            self.assertEqual("inList", opengl1["condition"]["type"])
-            self.assertEqual(["Linux", "Windows"], opengl1["condition"]["list"])
+            self.assertEqual("inList", vulkan["condition"]["type"])
+            self.assertEqual(["Linux", "Windows"], vulkan["condition"]["list"])
 
         for preset_kind in ("configurePresets", "buildPresets"):
             windows = next(
@@ -367,8 +367,8 @@ class DependencyPinTests(unittest.TestCase):
         url = self.run_pins("--url", "CNA")
         directory = self.run_pins("--directory", "CNA")
         self.assertEqual(0, repository.returncode, repository.stderr)
-        self.assertEqual("openeggbert/cna", repository.stdout.strip())
-        self.assertEqual("https://github.com/openeggbert/cna.git", url.stdout.strip())
+        self.assertEqual("libcna/cna", repository.stdout.strip())
+        self.assertEqual("https://github.com/libcna/cna.git", url.stdout.strip())
         self.assertEqual("cna", directory.stdout.strip())
 
     def test_pin_tool_uses_shared_dependency_layout(self):

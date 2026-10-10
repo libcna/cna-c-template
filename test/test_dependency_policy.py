@@ -181,7 +181,6 @@ class DependencyPolicyTests(unittest.TestCase):
         for dependency, target in (
             ("EASY_GL", "easy-gl"),
             ("META_GL", "meta-gl"),
-            ("FREE_DIRECT", "free-direct"),
         ):
             self.assertIn(
                 f"{dependency} {target} \"${{CNA_ALLOW_UNPINNED}}\"", cmake
@@ -193,7 +192,6 @@ class DependencyPolicyTests(unittest.TestCase):
         self.assertIn(
             'rendererDependencyNames.addAll(["EASY_GL", "META_GL"])', gradle
         )
-        self.assertIn('rendererDependencyNames.add("FREE_DIRECT")', gradle)
 
 
 if __name__ == "__main__":

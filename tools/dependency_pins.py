@@ -18,7 +18,6 @@ REQUIRED_DEPENDENCIES = {
     "SHARP_RUNTIME",
     "EASY_GL",
     "META_GL",
-    "FREE_DIRECT",
 }
 PIN_RE = re.compile(
     r"^([A-Z][A-Z0-9_]*)"

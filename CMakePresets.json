@@ -104,25 +104,6 @@
       }
     },
     {
-      "name": "opengles2",
-      "displayName": "OPENGLES2 \u2014 Internally EasyGL, GLES 2.0 profile",
-      "description": "2D3D renderer. Platforms: linux, windows, macos, android. Dependency: sibling ../easy-gl (which needs ../meta-gl).",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-opengles2",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "OPENGLES2"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "opengl33",
       "displayName": "OPENGL33 \u2014 Internally EasyGL, desktop GL 3.3 core profile",
       "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: sibling ../easy-gl (which needs ../meta-gl).",
@@ -161,81 +142,6 @@
       }
     },
     {
-      "name": "web-webgl1",
-      "displayName": "WEBGL1 \u2014 WebGL 1 profile",
-      "description": "2D3D renderer. Platforms: web. Dependency: sibling ../easy-gl (which needs ../meta-gl).",
-      "inherits": "web-base",
-      "binaryDir": "${sourceDir}/build-web-webgl1",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "WEBGL1"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl1",
-      "displayName": "OPENGL1 \u2014 Legacy fixed-function OpenGL 1.x",
-      "description": "2D3D renderer. Platforms: linux, windows. Dependency: system OpenGL.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-opengl1",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "OPENGL1"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
-      "name": "opengl2",
-      "displayName": "OPENGL2 \u2014 Desktop OpenGL 2.1 compatibility profile, GLSL 1.10",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: system OpenGL.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-opengl2",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "OPENGL2"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl4",
-      "displayName": "OPENGL4 \u2014 Real desktop OpenGL 4.x core profile, independent of EasyGL",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: system OpenGL.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-opengl4",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "OPENGL4"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "vulkan",
       "displayName": "VULKAN \u2014 Real 3D via Vulkan",
       "description": "2D3D renderer. Platforms: linux, windows. Dependency: system Vulkan SDK (find_package(Vulkan REQUIRED)).",
@@ -255,7 +161,7 @@
     },
     {
       "name": "webgpu",
-      "displayName": "WEBGPU \u2014 Despite the name this is a NATIVE renderer; CNA rejects it under Emscripten",
+      "displayName": "WEBGPU \u2014 Native wgpu-native on desktop",
       "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: wgpu-native binary release, auto-downloaded.",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build-webgpu",
@@ -345,139 +251,6 @@
       }
     },
     {
-      "name": "portablegl",
-      "displayName": "PORTABLEGL \u2014 CPU OpenGL 3.x-style pipeline",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: PortableGL single header via FetchContent.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-portablegl",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "PORTABLEGL"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "blend2d",
-      "displayName": "BLEND2D \u2014 Blend2D CPU vector rasterizer, presented through an SDL texture",
-      "description": "2D renderer. Platforms: linux, windows, macos. Dependency: Blend2D + asmjit via FetchContent.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-blend2d",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "BLEND2D"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-canvas",
-      "displayName": "CANVAS \u2014 Browser 2D canvas context",
-      "description": "2D renderer. Platforms: web. Dependency: none.",
-      "inherits": "web-base",
-      "binaryDir": "${sourceDir}/build-web-canvas",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "CANVAS"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-html-dom",
-      "displayName": "HTML_DOM \u2014 Draws sprites as pooled CSS-transformed <div> elements",
-      "description": "2D renderer. Platforms: web. Dependency: none.",
-      "inherits": "web-base",
-      "binaryDir": "${sourceDir}/build-web-html-dom",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "HTML_DOM"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-svg-dom",
-      "displayName": "SVG_DOM \u2014 Draws sprites as real <svg>/<image> elements",
-      "description": "2D renderer. Platforms: web. Dependency: none.",
-      "inherits": "web-base",
-      "binaryDir": "${sourceDir}/build-web-svg-dom",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "SVG_DOM"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "bgfx",
-      "displayName": "BGFX \u2014 bgfx cross-platform renderer",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: bgfx via FetchContent (pinned, patched).",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-bgfx",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "BGFX"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sokol",
-      "displayName": "SOKOL \u2014 Adds CNA_SOKOL_API (GLCORE default; only GLCORE is verified upstream)",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: sokol single header via FetchContent + system OpenGL.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-sokol",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "SOKOL"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "fna3d",
       "displayName": "FNA3D \u2014 The XNA-shaped C library FNA renders through",
       "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: FNA3D + MojoShader via FetchContent; needs Python3.",
@@ -485,25 +258,6 @@
       "binaryDir": "${sourceDir}/build-fna3d",
       "cacheVariables": {
         "CNA_GRAPHICS_RENDERER": "FNA3D"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "freedirect",
-      "displayName": "FREEDIRECT \u2014 DirectDraw reimplemented on SDL3, so unlike DIRECTX* it builds on Linux",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: sibling ../free-direct.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-freedirect",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "FREEDIRECT"
       },
       "condition": {
         "type": "inList",
@@ -546,13 +300,13 @@
       }
     },
     {
-      "name": "directx12",
-      "displayName": "DIRECTX12 \u2014 Direct3D 12",
-      "description": "2D3D renderer. Platforms: windows. Dependency: d3d12.h/dxgi.h.",
+      "name": "directx9",
+      "displayName": "DIRECTX9 \u2014 Direct3D 9",
+      "description": "2D3D renderer. Platforms: windows. Dependency: d3d9.h.",
       "inherits": "base",
-      "binaryDir": "${sourceDir}/build-directx12",
+      "binaryDir": "${sourceDir}/build-directx9",
       "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "DIRECTX12"
+        "CNA_GRAPHICS_RENDERER": "DIRECTX9"
       },
       "condition": {
         "type": "equals",
@@ -561,13 +315,13 @@
       }
     },
     {
-      "name": "windows-directx12",
-      "displayName": "DIRECTX12 \u2014 Direct3D 12",
-      "description": "2D3D renderer. Platforms: windows. Dependency: d3d12.h/dxgi.h.",
+      "name": "windows-directx9",
+      "displayName": "DIRECTX9 \u2014 Direct3D 9",
+      "description": "2D3D renderer. Platforms: windows. Dependency: d3d9.h.",
       "inherits": "mingw-base",
-      "binaryDir": "${sourceDir}/build-windows-directx12",
+      "binaryDir": "${sourceDir}/build-windows-directx9",
       "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "DIRECTX12"
+        "CNA_GRAPHICS_RENDERER": "DIRECTX9"
       },
       "condition": {
         "type": "equals",
@@ -620,20 +374,6 @@
       }
     },
     {
-      "name": "opengles2",
-      "configurePreset": "opengles2",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "opengl33",
       "configurePreset": "opengl33",
       "configuration": "Debug",
@@ -651,61 +391,6 @@
       "name": "web-webgl2",
       "configurePreset": "web-webgl2",
       "configuration": "Release",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-webgl1",
-      "configurePreset": "web-webgl1",
-      "configuration": "Release",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl1",
-      "configurePreset": "opengl1",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
-      "name": "opengl2",
-      "configurePreset": "opengl2",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl4",
-      "configurePreset": "opengl4",
-      "configuration": "Debug",
       "condition": {
         "type": "inList",
         "string": "${hostSystemName}",
@@ -796,120 +481,8 @@
       }
     },
     {
-      "name": "portablegl",
-      "configurePreset": "portablegl",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "blend2d",
-      "configurePreset": "blend2d",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-canvas",
-      "configurePreset": "web-canvas",
-      "configuration": "Release",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-html-dom",
-      "configurePreset": "web-html-dom",
-      "configuration": "Release",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "web-svg-dom",
-      "configurePreset": "web-svg-dom",
-      "configuration": "Release",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "bgfx",
-      "configurePreset": "bgfx",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sokol",
-      "configurePreset": "sokol",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "fna3d",
       "configurePreset": "fna3d",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "freedirect",
-      "configurePreset": "freedirect",
       "configuration": "Debug",
       "condition": {
         "type": "inList",
@@ -942,8 +515,8 @@
       }
     },
     {
-      "name": "directx12",
-      "configurePreset": "directx12",
+      "name": "directx9",
+      "configurePreset": "directx9",
       "configuration": "Debug",
       "condition": {
         "type": "equals",
@@ -952,8 +525,8 @@
       }
     },
     {
-      "name": "windows-directx12",
-      "configurePreset": "windows-directx12",
+      "name": "windows-directx9",
+      "configurePreset": "windows-directx9",
       "configuration": "Debug",
       "condition": {
         "type": "equals",
@@ -1039,107 +612,8 @@
       }
     },
     {
-      "name": "opengles2",
-      "configurePreset": "opengles2",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "opengl33",
       "configurePreset": "opengl33",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl1",
-      "configurePreset": "opengl1",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
-      "name": "opengl2",
-      "configurePreset": "opengl2",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "opengl4",
-      "configurePreset": "opengl4",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -1308,133 +782,8 @@
       }
     },
     {
-      "name": "portablegl",
-      "configurePreset": "portablegl",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "headless"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "blend2d",
-      "configurePreset": "blend2d",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "bgfx",
-      "configurePreset": "bgfx",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sokol",
-      "configurePreset": "sokol",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
       "name": "fna3d",
       "configurePreset": "fna3d",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "freedirect",
-      "configurePreset": "freedirect",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -1479,8 +828,8 @@
       }
     },
     {
-      "name": "directx12",
-      "configurePreset": "directx12",
+      "name": "directx9",
+      "configurePreset": "directx9",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true

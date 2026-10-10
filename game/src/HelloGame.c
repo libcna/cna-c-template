@@ -1,4 +1,6 @@
 #include "HelloGame/HelloGame.h"
+#include "CNA/C/abi.h"
+#include "CnaTemplate/Version.h"
 #include <stdbool.h>
 #include <math.h>
 #include <stdio.h>
@@ -91,6 +93,7 @@ static void CreateLogoCubeVertices(CNA_VertexPositionTexture* vertices) {
 
 typedef struct {
     CNA_Handle graphics;
+    CNA_GraphicsDeviceManagerHandle manager;
     CNA_Handle content;
     CNA_Handle spriteBatch;
     CNA_Handle cubeEffect;
@@ -218,6 +221,9 @@ static CNA_Result ReportRendererCapabilities(HelloGameData* data, CNA_CallbackEr
     info.struct_version = UINT32_C(1);
     CNA_TRY(data, error, cna_graphics_device_get_renderer_info(data->graphics, &info));
 
+    printf("cna-c-template %s (CNA C ABI %u.%u.%u)\n", cna_template_version_string(),
+           (unsigned)CNA_ABI_VERSION_MAJOR, (unsigned)CNA_ABI_VERSION_MINOR,
+           (unsigned)CNA_ABI_VERSION_PATCH);
     printf("cna-c-template: renderer %s\n", data->rendererName);
     printf("  window          : %s\n", data->hasWindow ? "yes" : "no (windowless renderer)");
     printf("  3D pipeline     : %s\n", data->supportsThreeD ? "yes" : "no (2D only)");
@@ -263,7 +269,16 @@ static CNA_Result HelloGame_LoadContent(CNA_Handle game, const CNA_GameTime* tim
     CNA_Bool depth = CNA_FALSE;
     CNA_TRY(data, error, cna_graphics_device_supports_capability(
         data->graphics, CNA_GRAPHICS_CAPABILITY_DEPTH_STENCIL_BUFFER, &depth));
-    data->supportsDepth = (depth != CNA_FALSE);
+    /* The capability says what the renderer can attach; whether this device's back buffer
+       actually carries a depth buffer is in its presentation parameters, and CNA refuses a
+       depth clear on a back buffer without one (SOFTWARE-333). Ask the device, not the name. */
+    CNA_PresentationParameters presentation;
+    memset(&presentation, 0, sizeof(presentation));
+    presentation.struct_size = (uint32_t)sizeof(presentation);
+    presentation.struct_version = UINT32_C(1);
+    CNA_TRY(data, error, cna_graphics_device_get_presentation_parameters(data->graphics, &presentation));
+    data->supportsDepth = (depth != CNA_FALSE) &&
+                          presentation.depth_stencil_format != CNA_DEPTH_FORMAT_NONE;
 
     if (data->supportsThreeD) {
         CNA_TRY(data, error, cna_basic_effect_create(data->graphics, &data->cubeEffect));
@@ -751,6 +766,7 @@ CNA_Handle HelloGame_Create(bool smokeTest, bool simulateDrawFailure) {
     data->smokeTest = smokeTest;
     data->simulateDrawFailure = simulateDrawFailure;
     data->graphics = CNA_INVALID_HANDLE;
+    data->manager = CNA_INVALID_HANDLE;
     data->content = CNA_INVALID_HANDLE;
     data->spriteBatch = CNA_INVALID_HANDLE;
     data->cubeEffect = CNA_INVALID_HANDLE;
@@ -785,6 +801,24 @@ CNA_Handle HelloGame_Create(bool smokeTest, bool simulateDrawFailure) {
         return CNA_INVALID_HANDLE;
     }
 
+    /* An XNA game owns a GraphicsDeviceManager, and so does this one. Without it CNA's C API
+       still gives the game a device, but a back buffer without a depth buffer, and CNA refuses
+       the depth clear the 3D path needs. Ask for XNA's default Depth24 before the device exists;
+       LoadContent reads back what the renderer really provides. The API contract releases the
+       manager before the game (HelloGame_Destroy). */
+    if (!HelloGame_Check(cna_graphics_device_manager_create(game, &data->manager),
+                         "cna_graphics_device_manager_create") ||
+        !HelloGame_Check(cna_graphics_device_manager_set_preferred_depth_stencil_format(
+                             data->manager, CNA_DEPTH_FORMAT_DEPTH24),
+                         "cna_graphics_device_manager_set_preferred_depth_stencil_format")) {
+        if (data->manager != CNA_INVALID_HANDLE) {
+            (void)cna_graphics_device_manager_destroy(data->manager);
+        }
+        (void)cna_game_destroy(game);
+        free(data);
+        return CNA_INVALID_HANDLE;
+    }
+
     activeGameData = data;
     return game;
 }
@@ -794,6 +828,18 @@ CNA_Result HelloGame_Destroy(CNA_Handle game) {
     if (game != CNA_INVALID_HANDLE) {
         if (activeGameData != NULL) {
             firstResult = ReleaseResources(activeGameData, NULL);
+            if (activeGameData->manager != CNA_INVALID_HANDLE) {
+                const CNA_Result managerResult =
+                    cna_graphics_device_manager_destroy(activeGameData->manager);
+                if (managerResult != CNA_RESULT_SUCCESS) {
+                    const CNA_Result reported = ReportCnaFailure(
+                        managerResult, "cna_graphics_device_manager_destroy", NULL, NULL);
+                    if (firstResult == CNA_RESULT_SUCCESS) {
+                        firstResult = reported;
+                    }
+                }
+                activeGameData->manager = CNA_INVALID_HANDLE;
+            }
         }
         CNA_Result destroyResult = cna_game_destroy(game);
         if (destroyResult != CNA_RESULT_SUCCESS) {

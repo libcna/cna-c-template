@@ -146,6 +146,19 @@ endfunction()
 # than bricking the template; cna_template_assert_no_drift() below is the
 # authoritative check and still fails loudly.
 function(cna_template_canonical_renderers cna_root out_var out_source)
+    # Current CNA keeps the public inventory in a dedicated identity registry.
+    if(EXISTS "${cna_root}/cmake/RendererIdentities.cmake")
+        file(READ "${cna_root}/cmake/RendererIdentities.cmake" _identities)
+        string(REGEX MATCH "set\\(CNA_RENDERER_PUBLIC_IDENTITIES[ \t\r\n]+([^)]*)\\)"
+            _match "${_identities}")
+        if(NOT _match)
+            message(FATAL_ERROR "cna-template: cannot read CNA's public renderer identities")
+        endif()
+        string(REGEX MATCHALL "[A-Z][A-Z0-9_]*" _names "${CMAKE_MATCH_1}")
+        set(${out_var} "${_names}" PARENT_SCOPE)
+        set(${out_source} "cna" PARENT_SCOPE)
+        return()
+    endif()
     set(_file "${cna_root}/cmake/RendererSelection.cmake")
     set(_names)
     if(EXISTS "${_file}")
@@ -239,7 +252,7 @@ function(cna_template_validate_renderer renderer cna_root)
         if(renderer STREQUAL "EASYGL")
             string(APPEND _msg
                 "  EASYGL is no longer a renderer name -- it is the internal implementation\n"
-                "  shared by OPENGLES2, OPENGLES3, OPENGL33, WEBGL1 and WEBGL2. Pick one of\n"
+                "  shared by OPENGLES3, OPENGL33 and WEBGL2. Pick one of\n"
                 "  those instead: OPENGLES3 for desktop Linux, WEBGL2 for the web.\n")
         endif()
         _cna_template_pretty_list("${_canonical}" "    " _all)

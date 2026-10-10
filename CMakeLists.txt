@@ -3,16 +3,31 @@
 # =============================================================================
 # Everything renderer-specific in this file is driven by cmake/renderers.json
 # (see cmake/CnaRenderers.cmake). There is deliberately no per-renderer
-# if/elseif chain here: CNA's renderer set keeps growing, so the template
-# treats the renderer set as data rather than as code.
+# if/elseif chain here: CNA's renderer set changes (it has 14 public renderers
+# since RRC-018 retired the rest), so the template treats the renderer set as
+# data rather than as code.
 #
 # CMake 3.23 is the floor because the easy-gl/meta-gl siblings backing the
-# OPENGLES2/OPENGLES3/OPENGL33/WEBGL1/WEBGL2 renderers require it (FILE_SET
+# OPENGLES3/OPENGL33/WEBGL2 renderers require it (FILE_SET
 # HEADERS). CNA itself only needs 3.20, but a template that could not build the
 # GL family would be a poor starting point.
 cmake_minimum_required(VERSION 3.23)
 
 project(CnaTemplate VERSION 0.1.0 LANGUAGES C CXX)
+
+# --- Release identity (docs/releasing.md) -------------------------------------
+# project(VERSION) accepts numeric components only, so the Semantic Versioning
+# pre-release identifier lives beside it and is joined back on here. A normal
+# variable, not a cache entry: a cached copy would keep an already-configured
+# build directory reporting the previous release after a bump.
+# CNA_TEMPLATE_VERSION_STRING is the single spelling the rest of the build reads.
+set(CNA_TEMPLATE_VERSION_PRERELEASE "")
+if(CNA_TEMPLATE_VERSION_PRERELEASE)
+    set(CNA_TEMPLATE_VERSION_STRING "${PROJECT_VERSION}-${CNA_TEMPLATE_VERSION_PRERELEASE}")
+else()
+    set(CNA_TEMPLATE_VERSION_STRING "${PROJECT_VERSION}")
+endif()
+message(STATUS "cna-c-template: version ${CNA_TEMPLATE_VERSION_STRING}")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -32,6 +47,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CnaRenderers)
 include(CnaDependencyPin)
+include(CnaTemplateVersion)
+include(CnaTemplateDependencies)
 
 message(STATUS "cna-template: ${PROJECT_NAME} -> ${CNA_TEMPLATE_APP_NAME}")
 message(STATUS "cna-template: platform ${CMAKE_SYSTEM_NAME}, "
@@ -273,6 +290,24 @@ endif()
 
 add_subdirectory("${CNA_ROOT_DIR}" CNA)
 
+# The sibling releases this template requires (cmake/CnaTemplateDependencies.cmake):
+# CNA and sharp-runtime always; easy-gl and meta-gl only when CNA added them for a
+# GL-family renderer. dependencies.lock pins the exact commits; this checks versions.
+cna_template_require_sibling_version(CNA "${CNA_ROOT_DIR}"
+    "${CNA_BINARY_DIR}/generated/include/CNA/Version.hpp"
+    CNA_VERSION_STRING "${CNA_TEMPLATE_REQUIRED_CNA_VERSION}")
+cna_template_require_sibling_version(sharp-runtime "${CNA_SHARP_RUNTIME_ROOT}"
+    "${SHARP_RUNTIME_BINARY_DIR}/generated/include/SharpRuntime/Version.hpp"
+    SHARP_RUNTIME_VERSION_STRING "${CNA_TEMPLATE_REQUIRED_SHARP_RUNTIME_VERSION}")
+if(TARGET easy-gl)
+    cna_template_require_sibling_version(easy-gl "${easy-gl_SOURCE_DIR}"
+        "${easy-gl_BINARY_DIR}/include/easygl/Version.hpp"
+        EASYGL_VERSION_STRING "${CNA_TEMPLATE_REQUIRED_EASYGL_VERSION}")
+    cna_template_require_sibling_version(meta-gl "${meta-gl_SOURCE_DIR}"
+        "${meta-gl_BINARY_DIR}/include/metagl/Version.hpp"
+        METAGL_VERSION_STRING "${CNA_TEMPLATE_REQUIRED_METAGL_VERSION}")
+endif()
+
 # Renderer-specific sibling projects are only dependencies when CNA actually
 # creates their targets. SOURCE_DIR reports the checkout CMake consumed, so the
 # pin check remains correct if an upstream dependency later gains a path
@@ -281,8 +316,6 @@ cna_template_verify_dependency_target(
     EASY_GL easy-gl "${CNA_ALLOW_UNPINNED}")
 cna_template_verify_dependency_target(
     META_GL meta-gl "${CNA_ALLOW_UNPINNED}")
-cna_template_verify_dependency_target(
-    FREE_DIRECT free-direct "${CNA_ALLOW_UNPINNED}")
 
 # CNA's modular targets correctly use SharpRuntime::<Component>, but a few
 # ancillary upstream tools still link the legacy SHARP_RUNTIME name directly.
@@ -299,97 +332,6 @@ if(NOT TARGET SHARP_RUNTIME
         target_link_libraries(SHARP_RUNTIME INTERFACE
             "SharpRuntime::${_sharp_component}")
     endforeach()
-endif()
-
-# An older CNA revision changed IGraphicsRenderer::CreateRenderTargetCube()
-# from four to five parameters but missed CanvasRenderer's declaration and
-# definition. Keep the sibling checkout read-only: derive two build-tree
-# compatibility copies, verify the exact stale signatures before replacing
-# them, then compile CanvasRenderer.cpp against the corrected overlay header.
-# The strict guards make an upstream change fail visibly instead of silently
-# applying a stale textual patch. See docs/compatibility.md (CNA-8).
-if(EMSCRIPTEN
-        AND CNA_GRAPHICS_RENDERER STREQUAL "CANVAS"
-        AND TARGET cna_renderer_canvas)
-    set(_canvas_source
-        "${CNA_ROOT_DIR}/modules/renderers/canvas/src/CanvasRenderer.cpp")
-    set(_canvas_header
-        "${CNA_ROOT_DIR}/modules/renderers/canvas/include/CNA/Internal/Renderers/Canvas/CanvasRenderer.hpp")
-    cmake_path(NORMAL_PATH _canvas_source)
-    cmake_path(NORMAL_PATH _canvas_header)
-    set(_canvas_compat_root
-        "${CMAKE_CURRENT_BINARY_DIR}/cna-template-compat/canvas")
-    set(_canvas_compat_source "${_canvas_compat_root}/CanvasRenderer.cpp")
-    set(_canvas_compat_header
-        "${_canvas_compat_root}/include/CNA/Internal/Renderers/Canvas/CanvasRenderer.hpp")
-
-    file(READ "${_canvas_header}" _canvas_header_content)
-    set(_canvas_old_header_signature [=[
-        std::unique_ptr<IRenderTargetCubeRenderer> CreateRenderTargetCube(
-            int size, int depthFormat, bool mipMap = false,
-            int multiSampleCount = 0) override;]=])
-    set(_canvas_new_header_signature [=[
-        std::unique_ptr<IRenderTargetCubeRenderer> CreateRenderTargetCube(
-            int size, int depthFormat, bool preserveContents = false,
-            bool mipMap = false, int multiSampleCount = 0) override;]=])
-    string(FIND "${_canvas_header_content}"
-        "${_canvas_old_header_signature}" _canvas_header_signature_position)
-    file(READ "${_canvas_source}" _canvas_source_content)
-    set(_canvas_old_source_signature [=[
-    std::unique_ptr<IRenderTargetCubeRenderer> CanvasRenderer::CreateRenderTargetCube(
-        int size, int, bool, int)]=])
-    set(_canvas_new_source_signature [=[
-    std::unique_ptr<IRenderTargetCubeRenderer> CanvasRenderer::CreateRenderTargetCube(
-        int size, int, bool, bool, int)]=])
-    string(FIND "${_canvas_source_content}"
-        "${_canvas_old_source_signature}" _canvas_source_signature_position)
-
-    # A fixed CNA is a supported capability, not an error. A mixed or unknown
-    # shape is an error because an overlay could then compile only half the fix.
-    string(FIND "${_canvas_header_content}"
-        "bool preserveContents" _canvas_fixed_header_position)
-    string(FIND "${_canvas_source_content}"
-        "int size, int, bool, bool, int)" _canvas_fixed_source_position)
-    if(NOT _canvas_fixed_header_position EQUAL -1
-            AND NOT _canvas_fixed_source_position EQUAL -1)
-        message(STATUS "cna-c-template: CNA-8 is fixed upstream; Canvas overlay not needed")
-    elseif(_canvas_header_signature_position EQUAL -1
-            OR _canvas_source_signature_position EQUAL -1)
-        message(FATAL_ERROR
-            "cna-c-template: CNA's Canvas CreateRenderTargetCube signatures are "
-            "neither the known four-parameter CNA-8 form nor the fixed five-parameter "
-            "form. Refusing a partial textual overlay; inspect ${_canvas_header} and "
-            "${_canvas_source}, then update docs/compatibility.md and this capability check.")
-    else()
-        message(STATUS "cna-c-template: applying detected CNA-8 Canvas compatibility overlay")
-        string(REPLACE "${_canvas_old_header_signature}"
-            "${_canvas_new_header_signature}"
-            _canvas_header_content "${_canvas_header_content}")
-        string(REPLACE "${_canvas_old_source_signature}"
-            "${_canvas_new_source_signature}"
-            _canvas_source_content "${_canvas_source_content}")
-
-        file(MAKE_DIRECTORY
-            "${_canvas_compat_root}"
-            "${_canvas_compat_root}/include/CNA/Internal/Renderers/Canvas")
-        file(CONFIGURE OUTPUT "${_canvas_compat_header}"
-            CONTENT "${_canvas_header_content}" @ONLY)
-        file(CONFIGURE OUTPUT "${_canvas_compat_source}"
-            CONTENT "${_canvas_source_content}" @ONLY)
-
-        get_target_property(_canvas_sources cna_renderer_canvas SOURCES)
-        list(FIND _canvas_sources "${_canvas_source}" _canvas_source_index)
-        if(_canvas_source_index EQUAL -1)
-            message(FATAL_ERROR
-                "cna-c-template: cannot locate CanvasRenderer.cpp in "
-                "cna_renderer_canvas; refusing an incomplete CNA-8 workaround.")
-        endif()
-        list(REMOVE_ITEM _canvas_sources "${_canvas_source}")
-        set_property(TARGET cna_renderer_canvas PROPERTY SOURCES
-            ${_canvas_sources} "${_canvas_compat_source}")
-        target_include_directories(cna_renderer_canvas BEFORE PRIVATE
-            "${_canvas_compat_root}/include")
-    endif()
 endif()
 
 # CNA has now resolved the renderer (ours or its own default) and published the
@@ -434,6 +376,7 @@ endif()
 target_include_directories(${_app} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/game/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/game/src"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/include"   # CnaTemplate/Version.h
 )
 
 # CNA::CApi is CNA's documented C-consumer target. It publishes the C headers
@@ -475,12 +418,14 @@ elseif(EMSCRIPTEN)
     target_link_libraries(${_app} PRIVATE SDL3::SDL3)
     set_target_properties(${_app} PROPERTIES SUFFIX ".html")
 
-    # CNA enables the Wasm exception-handling ABI in its own directory scope.
-    # Directory properties propagate downward only, so this target -- defined in
-    # the parent scope -- must opt in explicitly or the link fails with
-    # "wasm-ld: undefined symbol: __cpp_exception".
-    target_compile_options(${_app} PRIVATE -fwasm-exceptions)
-    target_link_options(${_app} PRIVATE -fwasm-exceptions)
+    # CNA publishes its exception ABI (-fexceptions, DISABLE_EXCEPTION_CATCHING=0)
+    # through its own targets, so this executable inherits it; forcing
+    # -fwasm-exceptions here, as the template did for the August CNA, now fails
+    # the link ("DISABLE_EXCEPTION_CATCHING=0 is not compatible with
+    # -fwasm-exceptions"). Unlike the C++ template, this one links no Asyncify:
+    # CNA's C API links with -sASYNCIFY=0 by design, and Program.c drives the loop
+    # itself from the browser's animation frame with cna_game_run_frame_ext()
+    # (CNA docs/emscripten-mainloop-game-lifetime.md).
 
     target_link_options(${_app} PRIVATE
         -sALLOW_MEMORY_GROWTH=1
@@ -491,9 +436,9 @@ elseif(EMSCRIPTEN)
         -sEXIT_RUNTIME=1
         "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/Content@/Content")
 
-    # WebGL version constraints are per renderer, not global: pinning
-    # MIN/MAX_WEBGL_VERSION=2 for every web build would break WEBGL1, and the
-    # CANVAS/HTML_DOM/SVG_DOM renderers create no WebGL context at all.
+    # WebGL version constraints are per renderer, not global, so a web renderer
+    # CNA adds later gets its own flags from the manifest instead of inheriting
+    # WEBGL2's.
     cna_template_renderer_field("${CNA_GRAPHICS_RENDERER}" webflags _webflags)
     if(_webflags)
         target_link_options(${_app} PRIVATE ${_webflags})
