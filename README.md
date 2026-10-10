@@ -1,9 +1,22 @@
 # cna-c-template
 
-A starter project for [CNA](https://github.com/openeggbert/cna) using CNA's native C binding. It
+A starter project for [CNA](https://github.com/libcna/cna) using CNA's native C binding. It
 contains a small game loop, texture loading, 2D and capability-gated 3D drawing, Android glue, and
 a smoke test that exits automatically. Every important CNA failure is returned through the game
 callback, so a failed frame makes the process and CTest fail.
+
+## Version
+
+Current release: **0.1.0** (pre-1.0; see [`CHANGELOG.md`](CHANGELOG.md) for what the release
+contains and [`docs/releasing.md`](docs/releasing.md) for how versions are managed). It is built
+and tested against **CNA 0.1.0** and **sharp-runtime 0.1.0**, plus **easy-gl 0.1.1** and
+**meta-gl 0.4.1** when a GL-family renderer is selected: `dependencies.lock` pins their exact
+commits, and configuration also checks the *versions* they declare and stops with the
+`git checkout` to run if a sibling is at another one (`cmake/CnaTemplateDependencies.cmake`).
+Compiled code reads the template's own version from `cna_template_version_string()` and the
+`CNA_TEMPLATE_VERSION_*` macros in `CnaTemplate/Version.h`, a header the build generates from
+`CMakeLists.txt`. The CNA C ABI it is compiled against is a different number, `CNA_ABI_VERSION_*`
+in `CNA/C/abi.h`.
 
 ## Quick start
 
@@ -14,7 +27,7 @@ those pins rather than cloning dependency HEAD:
 mkdir cna-workspace
 cd cna-workspace
 
-git clone https://github.com/openeggbert/cna-c-template.git
+git clone https://github.com/libcna/cna-c-template.git
 git clone "$(python3 cna-c-template/tools/dependency_pins.py --url CNA)" \
     "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)"
 git clone "$(python3 cna-c-template/tools/dependency_pins.py --url SHARP_RUNTIME)" \
@@ -75,14 +88,14 @@ configures `CNA_ENABLE_DRACO=OFF` and reports that decision.
 | CMake | 3.23 or newer for desktop/web configuration |
 | Compilers | A C11 compiler for the game and a C++23 compiler for CNA and sharp-runtime |
 | Python | Python 3.9 or newer for generators and pin checks |
-| Dependencies | `cna` and `sharp-runtime` in one dependency directory; `easy-gl`/`meta-gl` only for the five EasyGL renderers; `free-direct` only for `FREEDIRECT` |
+| Dependencies | `cna` and `sharp-runtime` in one dependency directory; `easy-gl`/`meta-gl` only for the three EasyGL renderers (`OPENGLES3`, `OPENGL33`, `WEBGL2`) |
 | CNA submodules | `third_party/SDL`, `SDL_image`, and `SDL_mixer`; `draco` is optional here and ENet is tracked normally |
 | Renderer SDKs | See the dependency column in [docs/renderers.md](docs/renderers.md) |
 
-The verified pinned Linux baseline uses GCC 14. The pinned CNA C-API target does not compile under
-GCC 13 because its own `-Werror` policy rejects hidden media `Equals` overloads; this template does
-not suppress that diagnostic. See [docs/compatibility.md](docs/compatibility.md) for the exact
-upstream boundary.
+The verified pinned Linux baseline uses GCC 14, which is also what CNA's own CI builds with. At
+the previous pin the CNA C-API target did not compile under GCC 13 (its `-Werror` policy rejected
+hidden media `Equals` overloads); GCC 13 has not been re-verified at CNA 0.1.0, and this template
+does not suppress CNA diagnostics. See [docs/compatibility.md](docs/compatibility.md).
 
 CMake and Android use the same CNA discovery order: `../cna`, then `../../cna`, relative to this
 repository. This supports both an ordinary sibling workspace and this repository living under an
@@ -157,17 +170,17 @@ Debug builds require no release credentials. CNA uses its Android default render
 (`SDL_RENDERER`) unless `-PcnaRenderer=OPENGLES3` or another Android-capable renderer is supplied.
 The EasyGL renderers still require `easy-gl` and `meta-gl` beside CNA.
 
-The pinned CNA revision currently has an upstream native-build blocker under NDK Clang. Its own
-strict C-API target promotes CNA header diagnostics (`-Wmismatched-tags`,
-`-Wdefaulted-function-deleted`, `-Woverloaded-virtual`, and
-`-Winconsistent-missing-override`) to errors. Required CI therefore validates the Wrapper, Gradle
-configuration/help/tasks, debug Java/resources, the arm64 CMake model and exported `SDL_main` entry
-object, and the exact release-signing negative path. It does not claim an APK: native compilation
-stops in `cna_c_api` before `libmain.so` can link or APK packaging can run. This template
-deliberately does not suppress those diagnostics or rewrite CNA; see
-[docs/compatibility.md](docs/compatibility.md) for exact files and evidence. A manual CI dispatch
-with `verify_android_native` enabled runs the unsuppressed `assembleDebug` path; make that step
-required when the locked CNA baseline compiles cleanly.
+At the previous pin the CNA C-API target did not build under NDK Clang, whose strict diagnostics
+(`-Wmismatched-tags`, `-Wdefaulted-function-deleted`, `-Woverloaded-virtual`,
+`-Winconsistent-missing-override`) CNA promotes to errors. CNA 0.1.0 carries the Apple/Android
+stabilization fixes made since (CNA `plans/plan_apple_m4.md`, AM4-297 … AM4-305), but the Android
+native build has not been re-verified from this template at the new pin. Required CI therefore
+still validates the Wrapper, Gradle configuration/help/tasks, debug Java/resources, the arm64 CMake
+model and exported `SDL_main` entry object, and the exact release-signing negative path, and does
+not claim an APK. This template deliberately does not suppress CNA diagnostics or rewrite CNA; see
+[docs/compatibility.md](docs/compatibility.md). A manual CI dispatch with `verify_android_native`
+enabled runs the unsuppressed `assembleDebug` path; make that step required once it passes at the
+locked baseline.
 
 ### Android release signing
 
