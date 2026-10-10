@@ -213,8 +213,12 @@ jobs:
           ref: ${{ steps.pins.outputs.sharp_runtime }}
           path: _dependencies/sharp-runtime
 
+      # v3.2.2 ran `sdkmanager tools`, a package the runner's cmdline-tools 16.0 no longer
+      # has ("Failed to find package 'tools'"), so the job died before installing anything;
+      # v4.0.2 dropped that and accepts the licenses itself (cna-template's Android job, CNA
+      # plans/plan_apple_m4.md AM4-251).
       - name: Install the documented Android toolchain
-        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        uses: android-actions/setup-android@7731365548f3f81c15d4c49c8f1d29101e02cdcf # v4.0.2
 
       - name: Install exact SDK, build-tools, NDK, and CMake versions
         run: |
