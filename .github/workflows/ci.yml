@@ -219,6 +219,11 @@ jobs:
       # plans/plan_apple_m4.md AM4-251).
       - name: Install the documented Android toolchain
         uses: android-actions/setup-android@7731365548f3f81c15d4c49c8f1d29101e02cdcf # v4.0.2
+        with:
+          # The runner image ships cmdline-tools 12.0 as `latest`; asking for exactly that keeps
+          # the action from downloading another one from dl.google.com, which aborted three times
+          # in a row on the first v4.0.2 run. sdkmanager 12.0 installs the pinned packages below.
+          cmdline-tools-version: 12.0
 
       - name: Install exact SDK, build-tools, NDK, and CMake versions
         run: |
