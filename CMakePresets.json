@@ -47,32 +47,13 @@
       }
     },
     {
-      "name": "sdl-renderer",
-      "displayName": "SDL_RENDERER \u2014 Most portable renderer, and CNA's default off Linux",
-      "description": "2D renderer. Platforms: linux, windows, macos, android. Dependency: none.",
+      "name": "sdlgpu",
+      "displayName": "SDLGPU \u2014 CNA's default on Windows, macOS and iOS",
+      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: none.",
       "inherits": "base",
-      "binaryDir": "${sourceDir}/build-sdl-renderer",
+      "binaryDir": "${sourceDir}/build-sdlgpu",
       "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "SDL_RENDERER"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sdl-gpu",
-      "displayName": "SDL_GPU \u2014 SDL3's own GPU abstraction",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: system libshaderc.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-sdl-gpu",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "SDL_GPU"
+        "CNA_GRAPHICS_RENDERER": "SDLGPU"
       },
       "condition": {
         "type": "inList",
@@ -86,7 +67,7 @@
     },
     {
       "name": "opengles3",
-      "displayName": "OPENGLES3 \u2014 CNA's default renderer on Linux",
+      "displayName": "OPENGLES3 \u2014 CNA's default on Linux, Android and other non-web targets",
       "description": "2D3D renderer. Platforms: linux, windows, macos, android. Dependency: sibling ../easy-gl (which needs ../meta-gl).",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build-opengles3",
@@ -142,27 +123,9 @@
       }
     },
     {
-      "name": "vulkan",
-      "displayName": "VULKAN \u2014 Real 3D via Vulkan",
-      "description": "2D3D renderer. Platforms: linux, windows. Dependency: system Vulkan SDK (find_package(Vulkan REQUIRED)).",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-vulkan",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "VULKAN"
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
       "name": "webgpu",
       "displayName": "WEBGPU \u2014 Native wgpu-native on desktop",
-      "description": "2D3D renderer. Platforms: linux, windows, macos. Dependency: wgpu-native binary release, auto-downloaded.",
+      "description": "2D3D renderer. Platforms: linux, windows, macos, web. Dependency: wgpu-native binary release, auto-downloaded.",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build-webgpu",
       "cacheVariables": {
@@ -176,21 +139,6 @@
           "Windows",
           "Darwin"
         ]
-      }
-    },
-    {
-      "name": "metal",
-      "displayName": "METAL \u2014 macOS only",
-      "description": "2D3D renderer. Platforms: macos. Dependency: Apple Metal framework.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-metal",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "METAL"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Darwin"
       }
     },
     {
@@ -270,36 +218,6 @@
       }
     },
     {
-      "name": "directx11",
-      "displayName": "DIRECTX11 \u2014 Direct3D 11",
-      "description": "2D3D renderer. Platforms: windows. Dependency: d3d11.h/dxgi.h.",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build-directx11",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "DIRECTX11"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
-      "name": "windows-directx11",
-      "displayName": "DIRECTX11 \u2014 Direct3D 11",
-      "description": "2D3D renderer. Platforms: windows. Dependency: d3d11.h/dxgi.h.",
-      "inherits": "mingw-base",
-      "binaryDir": "${sourceDir}/build-windows-directx11",
-      "cacheVariables": {
-        "CNA_GRAPHICS_RENDERER": "DIRECTX11"
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
-    },
-    {
       "name": "directx9",
       "displayName": "DIRECTX9 \u2014 Direct3D 9",
       "description": "2D3D renderer. Platforms: windows. Dependency: d3d9.h.",
@@ -332,22 +250,8 @@
   ],
   "buildPresets": [
     {
-      "name": "sdl-renderer",
-      "configurePreset": "sdl-renderer",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sdl-gpu",
-      "configurePreset": "sdl-gpu",
+      "name": "sdlgpu",
+      "configurePreset": "sdlgpu",
       "configuration": "Debug",
       "condition": {
         "type": "inList",
@@ -402,19 +306,6 @@
       }
     },
     {
-      "name": "vulkan",
-      "configurePreset": "vulkan",
-      "configuration": "Debug",
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
       "name": "webgpu",
       "configurePreset": "webgpu",
       "configuration": "Debug",
@@ -426,16 +317,6 @@
           "Windows",
           "Darwin"
         ]
-      }
-    },
-    {
-      "name": "metal",
-      "configurePreset": "metal",
-      "configuration": "Debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Darwin"
       }
     },
     {
@@ -495,26 +376,6 @@
       }
     },
     {
-      "name": "directx11",
-      "configurePreset": "directx11",
-      "configuration": "Debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
-      "name": "windows-directx11",
-      "configurePreset": "windows-directx11",
-      "configuration": "Debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      }
-    },
-    {
       "name": "directx9",
       "configurePreset": "directx9",
       "configuration": "Debug",
@@ -537,33 +398,8 @@
   ],
   "testPresets": [
     {
-      "name": "sdl-renderer",
-      "configurePreset": "sdl-renderer",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows",
-          "Darwin"
-        ]
-      }
-    },
-    {
-      "name": "sdl-gpu",
-      "configurePreset": "sdl-gpu",
+      "name": "sdlgpu",
+      "configurePreset": "sdlgpu",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -637,30 +473,6 @@
       }
     },
     {
-      "name": "vulkan",
-      "configurePreset": "vulkan",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "inList",
-        "string": "${hostSystemName}",
-        "list": [
-          "Linux",
-          "Windows"
-        ]
-      }
-    },
-    {
       "name": "webgpu",
       "configurePreset": "webgpu",
       "configuration": "Debug",
@@ -683,27 +495,6 @@
           "Windows",
           "Darwin"
         ]
-      }
-    },
-    {
-      "name": "metal",
-      "configurePreset": "metal",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Darwin"
       }
     },
     {
@@ -804,27 +595,6 @@
           "Windows",
           "Darwin"
         ]
-      }
-    },
-    {
-      "name": "directx11",
-      "configurePreset": "directx11",
-      "configuration": "Debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      },
-      "filter": {
-        "include": {
-          "label": "display"
-        }
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
       }
     },
     {

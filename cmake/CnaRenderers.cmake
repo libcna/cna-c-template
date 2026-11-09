@@ -7,10 +7,11 @@
 #
 # The two are reconciled at configure time, twice:
 #
-#   1. cna_template_canonical_renderers() parses the authoritative
-#      set_property(CACHE CNA_GRAPHICS_RENDERER PROPERTY STRINGS ...) line out
-#      of the CNA checkout BEFORE add_subdirectory(), so a bad renderer name is
-#      rejected with a useful message instead of dying inside CNA.
+#   1. cna_template_canonical_renderers() parses CNA_RENDERER_PUBLIC_IDENTITIES
+#      out of the CNA checkout's cmake/RendererIdentities.cmake (older checkouts:
+#      the STRINGS line of cmake/RendererSelection.cmake) BEFORE
+#      add_subdirectory(), so a bad renderer name is rejected with a useful
+#      message instead of dying inside CNA.
 #
 #   2. cna_template_assert_no_drift() re-reads the same list from the CMake
 #      cache AFTER add_subdirectory(), which is authoritative rather than

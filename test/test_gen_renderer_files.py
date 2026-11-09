@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -50,6 +51,21 @@ class RendererGeneratorTests(unittest.TestCase):
         self.assertNotIn("GraphicsDevice::SupportsCapability", document)
         self.assertNotIn("| Dependency | Tested | Notes |", document)
 
+    def test_generated_document_names_only_manifest_renderers(self):
+        # Prose outside the tables (the platform defaults, the display note) must not
+        # keep naming a renderer CNA has retired.
+        document = self.generator.build_doc(self.renderers)
+        names = {renderer["name"] for renderer in self.renderers}
+        quoted = set(re.findall(r"`([A-Z][A-Z0-9_]*)`", document))
+        renderer_like = {name for name in quoted if not name.startswith("CNA_")}
+        self.assertTrue(renderer_like)
+        self.assertLessEqual(renderer_like, names)
+        self.assertIn(
+            "`WEBGL2` on the web, `SDLGPU` on Windows, macOS and iOS, and `OPENGLES3` "
+            "everywhere else",
+            document,
+        )
+
     def test_manifest_validation_rejects_malformed_platform_data(self):
         malformed = [dict(self.renderers[0])]
         malformed[0]["platforms"] = [{"not": "a platform"}]
@@ -95,10 +111,12 @@ class RendererGeneratorTests(unittest.TestCase):
 
     def test_cross_compiled_windows_presets_have_no_test_presets(self):
         presets = self.generator.build_presets(self.renderers)
+        configure_names = {preset["name"] for preset in presets["configurePresets"]}
+        build_names = {preset["name"] for preset in presets["buildPresets"]}
         test_names = {preset["name"] for preset in presets["testPresets"]}
-        self.assertIn("directx11", test_names)
         self.assertIn("directx9", test_names)
-        self.assertNotIn("windows-directx11", test_names)
+        self.assertIn("windows-directx9", configure_names)
+        self.assertIn("windows-directx9", build_names)
         self.assertNotIn("windows-directx9", test_names)
 
     def test_native_build_and_test_presets_select_matching_debug_configuration(self):
@@ -164,23 +182,21 @@ class RendererGeneratorTests(unittest.TestCase):
     def test_host_conditions_cover_configure_build_and_test_presets(self):
         presets = self.generator.build_presets(self.renderers)
         for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
-            metal = next(
-                preset for preset in presets[preset_kind] if preset["name"] == "metal"
+            opengles3 = next(
+                preset
+                for preset in presets[preset_kind]
+                if preset["name"] == "opengles3"
             )
-            self.assertEqual("Darwin", metal["condition"]["rhs"])
-
-        for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
-            vulkan = next(
-                preset for preset in presets[preset_kind] if preset["name"] == "vulkan"
+            self.assertEqual("inList", opengles3["condition"]["type"])
+            self.assertEqual(
+                ["Linux", "Windows", "Darwin"], opengles3["condition"]["list"]
             )
-            self.assertEqual("inList", vulkan["condition"]["type"])
-            self.assertEqual(["Linux", "Windows"], vulkan["condition"]["list"])
 
         for preset_kind in ("configurePresets", "buildPresets"):
             windows = next(
                 preset
                 for preset in presets[preset_kind]
-                if preset["name"] == "windows-directx11"
+                if preset["name"] == "windows-directx9"
             )
             self.assertEqual("Linux", windows["condition"]["rhs"])
 
@@ -188,9 +204,40 @@ class RendererGeneratorTests(unittest.TestCase):
             native_windows = next(
                 preset
                 for preset in presets[preset_kind]
-                if preset["name"] == "directx11"
+                if preset["name"] == "directx9"
             )
             self.assertEqual("Windows", native_windows["condition"]["rhs"])
+
+    def test_host_conditions_cover_single_and_partial_desktop_renderers(self):
+        # CNA's current set has no macOS-only or Linux+Windows renderer; keep the
+        # preset-level derivation for those shapes covered with fixture entries.
+        template = next(r for r in self.renderers if r["name"] == "HEADLESS")
+        mac_only = dict(template, name="MAC_ONLY_FIXTURE", platforms=["macos"])
+        mac_only.pop("experimental", None)
+        linux_windows = dict(
+            template, name="LINUX_WINDOWS_FIXTURE", platforms=["linux", "windows"]
+        )
+        linux_windows.pop("experimental", None)
+        fixtures = [mac_only, linux_windows]
+        self.generator.validate_manifest(fixtures)
+        presets = self.generator.build_presets(fixtures)
+
+        for preset_kind in ("configurePresets", "buildPresets", "testPresets"):
+            mac = next(
+                preset
+                for preset in presets[preset_kind]
+                if preset["name"] == "mac-only-fixture"
+            )
+            self.assertEqual("equals", mac["condition"]["type"])
+            self.assertEqual("Darwin", mac["condition"]["rhs"])
+
+            partial = next(
+                preset
+                for preset in presets[preset_kind]
+                if preset["name"] == "linux-windows-fixture"
+            )
+            self.assertEqual("inList", partial["condition"]["type"])
+            self.assertEqual(["Linux", "Windows"], partial["condition"]["list"])
 
     def test_generated_preset_kinds_have_no_orphans_or_condition_drift(self):
         presets = self.generator.build_presets(self.renderers)
@@ -249,14 +296,18 @@ class RendererGeneratorTests(unittest.TestCase):
         )
 
     def test_android_support_does_not_make_a_desktop_preset_host(self):
+        opengles3_renderer = next(
+            renderer for renderer in self.renderers if renderer["name"] == "OPENGLES3"
+        )
+        self.assertIn("android", opengles3_renderer["platforms"])
         presets = self.generator.build_presets(self.renderers)
-        sdl = next(
+        opengles3 = next(
             preset
             for preset in presets["configurePresets"]
-            if preset["name"] == "sdl-renderer"
+            if preset["name"] == "opengles3"
         )
         self.assertEqual(
-            {"Linux", "Windows", "Darwin"}, set(sdl["condition"]["list"])
+            {"Linux", "Windows", "Darwin"}, set(opengles3["condition"]["list"])
         )
 
     def test_same_count_semantic_cna_drift_fails_check(self):

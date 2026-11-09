@@ -8,11 +8,12 @@ callback, so a failed frame makes the process and CTest fail.
 ## Version
 
 Current release: **0.1.0** (pre-1.0; see [`CHANGELOG.md`](CHANGELOG.md) for what the release
-contains and [`docs/releasing.md`](docs/releasing.md) for how versions are managed). It is built
-and tested against **CNA 0.1.0** and **sharp-runtime 0.1.0**, plus **easy-gl 0.1.1** and
-**meta-gl 0.4.1** when a GL-family renderer is selected: `dependencies.lock` pins their exact
-commits, and configuration also checks the *versions* they declare and stops with the
-`git checkout` to run if a sibling is at another one (`cmake/CnaTemplateDependencies.cmake`).
+contains and [`docs/releasing.md`](docs/releasing.md) for how versions are managed). The
+development branch is built and tested against **CNA 0.2.0** (CNA's `next` branch) and
+**sharp-runtime 0.2.0**, plus **easy-gl 0.1.1** and **meta-gl 0.4.1** when a GL-family renderer is
+selected: `dependencies.lock` pins their exact commits, and configuration also checks the
+*versions* they declare and stops with the `git checkout` to run if a sibling is at another one
+(`cmake/CnaTemplateDependencies.cmake`).
 Compiled code reads the template's own version from `cna_template_version_string()` and the
 `CNA_TEMPLATE_VERSION_*` macros in `CnaTemplate/Version.h`, a header the build generates from
 `CMakeLists.txt`. The CNA C ABI it is compiled against is a different number, `CNA_ABI_VERSION_*`
@@ -38,8 +39,7 @@ git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)" \
 git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory SHARP_RUNTIME)" \
     checkout "$(python3 cna-c-template/tools/dependency_pins.py --revision SHARP_RUNTIME)"
 git -C "$(python3 cna-c-template/tools/dependency_pins.py --directory CNA)" \
-    submodule update --init \
-    third_party/SDL third_party/SDL_image third_party/SDL_mixer
+    submodule update --init third_party/SDL third_party/SDL_mixer
 
 python3 cna-c-template/tools/dependency_pins.py \
     --dependencies-dir . --check CNA SHARP_RUNTIME
@@ -57,8 +57,8 @@ draw callback injects `CNA_RESULT_INVALID_HANDLE`, the game loop returns `CNA_RE
 the game handle is released while preserving that callback result, and the test-only process status
 is exactly 86; an arbitrary failure is rejected.
 
-For a visible portable window, use the `sdl-renderer` preset. `opengles3` additionally needs
-`easy-gl` and `meta-gl` beside CNA:
+For a visible window on Linux, use the `opengles3` preset, CNA's default renderer there. It
+additionally needs `easy-gl` and `meta-gl` beside CNA:
 
 ```bash
 cd ..
@@ -89,13 +89,13 @@ configures `CNA_ENABLE_DRACO=OFF` and reports that decision.
 | Compilers | A C11 compiler for the game and a C++23 compiler for CNA and sharp-runtime |
 | Python | Python 3.9 or newer for generators and pin checks |
 | Dependencies | `cna` and `sharp-runtime` in one dependency directory; `easy-gl`/`meta-gl` only for the three EasyGL renderers (`OPENGLES3`, `OPENGL33`, `WEBGL2`) |
-| CNA submodules | `third_party/SDL`, `SDL_image`, and `SDL_mixer`; `draco` is optional here and ENet is tracked normally |
+| CNA submodules | `third_party/SDL` and `third_party/SDL_mixer`; `draco` is optional here and ENet is tracked normally |
 | Renderer SDKs | See the dependency column in [docs/renderers.md](docs/renderers.md) |
 
 The verified pinned Linux baseline uses GCC 14, which is also what CNA's own CI builds with. At
 the previous pin the CNA C-API target did not compile under GCC 13 (its `-Werror` policy rejected
-hidden media `Equals` overloads); GCC 13 has not been re-verified at CNA 0.1.0, and this template
-does not suppress CNA diagnostics. See [docs/compatibility.md](docs/compatibility.md).
+hidden media `Equals` overloads); GCC 13 has not been re-verified at the current CNA pin, and this
+template does not suppress CNA diagnostics. See [docs/compatibility.md](docs/compatibility.md).
 
 CMake and Android use the same CNA discovery order: `../cna`, then `../../cna`, relative to this
 repository. This supports both an ordinary sibling workspace and this repository living under an
@@ -117,19 +117,21 @@ cmake --list-presets=build
 cmake --list-presets=test
 ```
 
-On native Linux or Windows, configure and build a renderer such as:
+On native Linux, Windows or macOS, configure and build a renderer such as `sdlgpu`, CNA's default
+on Windows and macOS (SDL selects Vulkan, Direct3D 12 or Metal underneath). It needs no sibling
+beyond CNA and sharp-runtime:
 
 ```bash
-cmake --preset sdl-renderer
-cmake --build --preset sdl-renderer
-ctest --preset sdl-renderer
+cmake --preset sdlgpu
+cmake --build --preset sdlgpu
+ctest --preset sdlgpu
 ```
 
-On Windows, `directx11` and `directx12` are native configure/build/test presets. The separate
-`windows-directx11` and `windows-directx12` presets are MinGW cross-builds from Linux. They have
-build presets but intentionally no CTest presets because Linux cannot execute the resulting Windows
-binaries directly. If Wine and the required runtime DLLs are available, run the produced executable
-with `--smoke-test` explicitly and inspect its exit status.
+On Windows, `directx9` is an additional native configure/build/test preset. The separate
+`windows-directx9` preset is a MinGW cross-build from Linux. It has a build preset but
+intentionally no CTest preset because Linux cannot execute the resulting Windows binary directly.
+If Wine and the required runtime DLLs are available, run the produced executable with
+`--smoke-test` explicitly and inspect its exit status.
 
 For web builds, activate Emscripten so `EMSDK` is set; the generated preset already supplies the
 toolchain file:
@@ -141,7 +143,9 @@ cmake --build --preset web-webgl2
 
 Web presets also omit CTest presets because the output requires a browser runtime.
 Native preset visibility is derived from every desktop platform in `cmake/renderers.json`: for
-example, Linux + Windows renderers are hidden on macOS, while Metal is shown only on macOS.
+example, the Windows-only `directx9` preset is shown only on Windows and its `windows-directx9`
+cross-build route only on Linux, while renderers supported on all three desktop systems are shown
+on each.
 Configure, build, and runnable test presets carry the same condition, so unsupported or orphan
 presets do not leak through inheritance. Native and MinGW build presets explicitly select `Debug`,
 web build presets select `Release`, and native test presets select the matching build
@@ -166,15 +170,16 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Debug builds require no release credentials. CNA uses its Android default renderer
-(`SDL_RENDERER`) unless `-PcnaRenderer=OPENGLES3` or another Android-capable renderer is supplied.
-The EasyGL renderers still require `easy-gl` and `meta-gl` beside CNA.
+Debug builds require no release credentials. CNA uses its Android default renderer, `OPENGLES3`,
+unless `-PcnaRenderer=<NAME>` selects another Android-capable renderer (see
+[docs/renderers.md](docs/renderers.md)). `OPENGLES3` requires `easy-gl` and `meta-gl` beside CNA,
+so the default Android build needs them too.
 
-At the previous pin the CNA C-API target did not build under NDK Clang, whose strict diagnostics
+An earlier pin's CNA C-API target did not build under NDK Clang, whose strict diagnostics
 (`-Wmismatched-tags`, `-Wdefaulted-function-deleted`, `-Woverloaded-virtual`,
-`-Winconsistent-missing-override`) CNA promotes to errors. CNA 0.1.0 carries the Apple/Android
-stabilization fixes made since (CNA `plans/plan_apple_m4.md`, AM4-297 … AM4-305), but the Android
-native build has not been re-verified from this template at the new pin. Required CI therefore
+`-Winconsistent-missing-override`) CNA promotes to errors. The current CNA pin carries the
+Apple/Android stabilization fixes made since (AM4-297 … AM4-305 in CNA's history), but the Android
+native build has not been re-verified from this template at the current pin. Required CI therefore
 still validates the Wrapper, Gradle configuration/help/tasks, debug Java/resources, the arm64 CMake
 model and exported `SDL_main` entry object, and the exact release-signing negative path, and does
 not claim an APK. This template deliberately does not suppress CNA diagnostics or rewrite CNA; see
@@ -210,11 +215,11 @@ repository, local directory, and exact revision. The quick start consumes all th
 records for checkout. There is no duplicated workflow repository or revision pin.
 
 Ordinary CMake and Gradle configuration inspect both always-used checkouts, CNA and sharp-runtime.
-CMake also verifies the source checkout behind any EasyGL, MetaGL, or FreeDirect target that CNA
-actually creates; Gradle performs the corresponding early check when `-PcnaRenderer` explicitly
-selects one of those families, and the nested CMake configure remains authoritative for CNA's
-platform default. A dirty or different Git revision fails unless an intentional compatibility test
-is explicitly acknowledged with
+CMake also verifies the source checkout behind any easy-gl or meta-gl target that CNA actually
+creates; Gradle performs the corresponding early check when `-PcnaRenderer` explicitly selects an
+EasyGL renderer, and the nested CMake configure remains authoritative for CNA's platform default
+(`OPENGLES3` on Android). A dirty or different Git revision fails unless an intentional
+compatibility test is explicitly acknowledged with
 `-DCNA_ALLOW_UNPINNED=ON` (CMake) or `-PcnaAllowUnpinned=true` (Gradle; it forwards the matching
 CMake option). Relative and absolute root overrides remain supported, but an override is not itself
 an acknowledgement. A consumed source archive without `.git` metadata remains usable and produces

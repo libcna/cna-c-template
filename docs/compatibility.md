@@ -18,8 +18,8 @@ files to inspect.
 | CNA-7 | Modular CNA originally added sharp-runtime before declaring its required component closure, and some tools still linked the legacy `SHARP_RUNTIME` target. | Load CNA's own `SharpRuntimeConsumption.cmake` before `add_subdirectory` when present; create the legacy bridge only if CNA did not create it. | Fixed in the pinned CNA revision; guards make the compatibility path inert. |
 | CNA-8 | Canvas retained the four-parameter `CreateRenderTargetCube` override after the interface gained `preserveContents`. | For an affected Emscripten Canvas build, verify both exact stale signatures and compile corrected build-tree copies. If both five-parameter signatures are present, do nothing. Mixed or unknown signatures fail precisely. | Fixed in the pinned CNA revision. **Obsolete since the pin moved to CNA 0.1.0: CNA retired the `CANVAS` renderer (RRC-018), and the overlay was removed from `CMakeLists.txt`.** |
 | CNA-9 | Older embedded CNA builds used the consumer's `CMAKE_SOURCE_DIR` when checking CNA's legacy `src/`/`include/` trees and locating CNA's vendored `cgltf`/`stb` headers. CNA's SDL prebuilt cache also defaults inside its source checkout. | Detect the buggy expressions before reserving consumer directory names or adding corrected include paths. Keep the SDL cache in the template's ignored, target-keyed `build/` area unless the caller overrides it. | Source-root bugs are fixed in the pinned CNA revision; the external SDL cache remains intentional. |
-| CNA-CAPI-STATIC | CNA's optional combined static C API packaging target reads Makefile-only `CMakeFiles/cna_c_api.dir/link.txt`; Ninja does not create that file, so its `ALL` target fails after the shared C API has built. | Force `CNA_C_API_BUILD_STATIC=OFF`. This application links the supported shared `CNA::CApi` target and does not ship CNA's static distribution package. | Present in the pinned CNA revision; deliberately out of scope for this application template. |
-| CNA-CAPI-GCC13 | GCC 13 includes `-Woverloaded-virtual` in the `-Wall` diagnostics applied with `-Werror` by CNA's `cna_c_api` target. Media types including `Album`, `Artist`, `Genre`, `Picture`, `PictureAlbum`, `Playlist`, and `Song` hide `System::Object::Equals(const Object*)`. | Keep CNA's strict warnings unchanged and run the required Linux baseline with the GCC 14 compiler preinstalled on the pinned `ubuntu-24.04` runner. | Present in the pinned CNA revision. GCC 14.2.0 completes the strict HEADLESS C-API build; GCC 13.3.0 fails in `CnaCApiMedia*.cpp`. |
+| CNA-CAPI-STATIC | CNA's optional combined static C API packaging target once read Makefile-only `CMakeFiles/cna_c_api.dir/link.txt`; Ninja does not create that file, so its `ALL` target failed after the shared C API had built. | Force `CNA_C_API_BUILD_STATIC=OFF`. This application links the supported shared `CNA::CApi` target and does not ship CNA's static distribution package. | Fixed in the pinned CNA revision, whose archive generator falls back to `build.ninja`. The option stays off: the archive is not part of the application, and a Debug tree would rewrite a few hundred MB of it on every relink. |
+| CNA-CAPI-GCC13 | GCC 13 includes `-Woverloaded-virtual` in the `-Wall` diagnostics applied with `-Werror` by CNA's `cna_c_api` target. Media types including `Album`, `Artist`, `Genre`, `Picture`, `PictureAlbum`, `Playlist`, and `Song` hid `System::Object::Equals(const Object*)`. | Keep CNA's strict warnings unchanged and run the required Linux baseline with the GCC 14 compiler preinstalled on the pinned `ubuntu-24.04` runner. | Observed at an earlier pin, where GCC 13.3.0 failed in `CnaCApiMedia*.cpp`. In the pinned CNA revision each of those types overrides `Equals(const System::Object*)`, which removes the hiding; GCC 13 was not re-run at this pin, so CI stays on GCC 14, which completes the strict HEADLESS C-API build. |
 | SHARP-RUNTIME-2 | `RandomAccess.cpp` once compiled native-only helpers on Emscripten, where `-Werror=unused-function` rejected them. | No warning suppression is applied. The pinned sharp-runtime guards the helpers with `!__EMSCRIPTEN__`; reintroducing the bug therefore fails normally instead of weakening warnings. | Fixed in the pinned sharp-runtime revision. |
 
 An older workaround also redefined `CNA_GL_PROFILE_*` on the application target. It was removed:
@@ -29,8 +29,8 @@ compile-time accessor.
 
 ## Known dependency-side baseline limitation
 
-The pinned CNA revision `6bba5562d66b2005057569373843be6c843ec8f1` does not finish an Android
-C-API build with NDK `29.0.14206865`. `modules/c-api/CMakeLists.txt` assigns
+The CNA revision `6bba5562d66b2005057569373843be6c843ec8f1`, an earlier pin, did not finish an
+Android C-API build with NDK `29.0.14206865`. `modules/c-api/CMakeLists.txt` assigns
 `-Wall -Wextra -Werror -Wno-missing-field-initializers` to `cna_c_api`; the template adds none of
 those strict flags. The first reproducible arm64 failure is:
 
@@ -50,23 +50,26 @@ Other concurrently compiled C-API translation units also fail because:
   omits `override` on `GetHashCode` (`-Werror,-Woverloaded-virtual` and
   `-Werror,-Winconsistent-missing-override`).
 
-These declarations and the strict target policy belong to CNA, not this template. The Android
-build therefore remains intentionally red rather than disabling diagnostics or carrying a broad
-shadow copy of dependency headers. The template narrows Gradle's native target request to `main`,
-so unrelated CNA tools are no longer requested, but `main` legitimately depends on `CNA::CApi`
-and still reaches the upstream failure.
+These declarations and the strict target policy belong to CNA, not this template. In the
+currently pinned CNA revision each of them is fixed in source: `AudioCategory` is a `struct` and
+`BoundingFrustum` a `class` in every declaration, `Color` has a default constructor, and `Song`
+overrides both `Equals(const System::Object*)` and `GetHashCode`. That was checked by reading the
+headers only; `assembleDebug` has not been re-run from this template at the current pin, so the
+Android native build is not claimed to pass. The template does not disable diagnostics or carry a
+shadow copy of dependency headers to get there. It narrows Gradle's native target request to
+`main`, so unrelated CNA tools are not requested, but `main` legitimately depends on `CNA::CApi`.
 
-Before that failure, the pinned build completed debug resource processing, Java compilation,
-dexing, SDL/CMake configuration, and most arm64 native dependency compilation. AGP's generated
-model identifies the intended `libmain.so`, its `libcna_c_api.so` dependency, and SDL3 runtime;
+At `6bba5562`, before that failure, the build completed debug resource processing, Java compilation,
+dexing, SDL/CMake configuration, and most arm64 native dependency compilation. AGP's generated model
+identifies the intended `libmain.so`, its `libcna_c_api.so` dependency, and SDL3 runtime;
 `HelloGameActivity` requests libraries `SDL3` and `main`, and Gradle declares both `arm64-v8a` and
 `x86_64`. On Android, `Program.c` includes SDL's public `SDL_main.h`; the pre-blocker CI check
 compiles that object and verifies it exports `SDL_main`, the function SDLActivity resolves, rather
 than a plain `main`. The blocker prevents linking those libraries and reaching APK packaging, so
 neither the packaged `.so` locations nor an installable APK is claimed as verified. Required CI
-exercises the strongest passing boundary and the signing negative contract. Re-run `assembleDebug`
-against a new candidate pin with the workflow's `verify_android_native` manual input, and make that
-step required only after CNA fixes these diagnostics.
+exercises the strongest boundary verified so far and the signing negative contract. Re-run
+`assembleDebug` against the pin with the workflow's `verify_android_native` manual input, and make
+that step required once it passes.
 
 When updating the dependency baseline:
 

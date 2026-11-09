@@ -35,110 +35,179 @@
     "Regenerate presets + docs after editing:  python3 tools/gen_renderer_files.py",
     "Check for drift without writing:          python3 tools/gen_renderer_files.py --check"
   ],
-
   "renderers": [
     {
-      "name": "SDL_RENDERER", "category": "sdl", "dimension": "2d",
-      "platforms": ["linux", "windows", "macos", "android"], "experimental": ["web"],
+      "name": "SDLGPU",
+      "category": "sdl",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
       "gate": "none",
-      "display": "window", "dependency": "none", "tier": "B", "preset": true,
-      "notes": "Most portable renderer, and CNA's default off Linux. 2D only: no VertexBuffer/IndexBuffer/depth buffer. CNA documents it as untested on the web -- use WEBGL2 there."
-    },
-
-    {
-      "name": "SDL_GPU", "category": "sdl", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos"], "gate": "none",
-      "display": "window", "dependency": "system libshaderc", "tier": "C", "preset": true,
-      "notes": "SDL3's own GPU abstraction. Needs libshaderc installed (libshaderc-dev)."
+      "display": "window",
+      "dependency": "none",
+      "tier": "C",
+      "preset": true,
+      "notes": "CNA's default on Windows, macOS and iOS. SDL3 selects Vulkan, Direct3D 12 or Metal internally."
     },
     {
-      "name": "OPENGLES3", "category": "gl-easygl", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos", "android"], "gate": "fatal",
-      "display": "window", "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
-      "tier": "B", "preset": true,
-      "notes": "CNA's default renderer on Linux. Internally EasyGL."
+      "name": "OPENGLES3",
+      "category": "gl-easygl",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos",
+        "android"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
+      "tier": "B",
+      "preset": true,
+      "notes": "CNA's default on Linux, Android and other non-web targets. Internally EasyGL."
     },
-
     {
-      "name": "OPENGL33", "category": "gl-easygl", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos"], "gate": "fatal",
-      "display": "window", "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
-      "tier": "C", "preset": true,
+      "name": "OPENGL33",
+      "category": "gl-easygl",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
+      "tier": "C",
+      "preset": true,
       "notes": "Internally EasyGL, desktop GL 3.3 core profile."
     },
-
     {
-      "name": "WEBGL2", "category": "gl-easygl", "dimension": "2d3d",
-      "platforms": ["web"], "gate": "fatal",
-      "display": "window", "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
-      "tier": "C", "preset": true,
-      "webflags": ["-sMIN_WEBGL_VERSION=2", "-sMAX_WEBGL_VERSION=2"],
+      "name": "WEBGL2",
+      "category": "gl-easygl",
+      "dimension": "2d3d",
+      "platforms": [
+        "web"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "sibling ../easy-gl (which needs ../meta-gl)",
+      "tier": "C",
+      "preset": true,
+      "webflags": [
+        "-sMIN_WEBGL_VERSION=2",
+        "-sMAX_WEBGL_VERSION=2"
+      ],
       "notes": "CNA's default renderer under Emscripten. Internally EasyGL."
     },
-
     {
-      "name": "VULKAN", "category": "modern-gpu", "dimension": "2d3d",
-      "platforms": ["linux", "windows"], "experimental": ["android"], "gate": "none",
-      "display": "window", "dependency": "system Vulkan SDK (find_package(Vulkan REQUIRED))",
-      "tier": "C", "preset": true,
-      "notes": "Real 3D via Vulkan. Builds on a CI runner but needs a real or software ICD to run."
-    },
-
-    {
-      "name": "WEBGPU", "category": "modern-gpu", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos"], "experimental": ["web"], "gate": "fatal",
-      "display": "window", "dependency": "wgpu-native binary release, auto-downloaded",
-      "tier": "C", "preset": true,
-      "notes": "Native wgpu-native on desktop. Under Emscripten it builds through the Dawn (emdawnwebgpu) port, as CNA's own web CI does, alongside WEBGL2 in one -DCNA_GRAPHICS_RENDERERS=\"WEBGL2;WEBGPU\" build; experimental here, and the browser then needs WebGPU."
-    },
-
-    {
-      "name": "METAL", "category": "modern-gpu", "dimension": "2d3d",
-      "platforms": ["macos"], "gate": "fatal",
-      "display": "window", "dependency": "Apple Metal framework", "tier": "X", "preset": true,
-      "notes": "macOS only. iOS/tvOS explicitly unvalidated upstream."
+      "name": "WEBGPU",
+      "category": "modern-gpu",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos",
+        "web"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "wgpu-native binary release, auto-downloaded",
+      "tier": "C",
+      "preset": true,
+      "notes": "Native wgpu-native on desktop. Under Emscripten it builds through the Dawn (emdawnwebgpu) port, as CNA's own web CI does, alongside WEBGL2 in one -DCNA_GRAPHICS_RENDERERS=\"WEBGL2;WEBGPU\" build; supported, and the browser then needs WebGPU."
     },
     {
-      "name": "HEADLESS", "category": "cpu", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos", "android"], "experimental": ["web"],
+      "name": "HEADLESS",
+      "category": "cpu",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos",
+        "android"
+      ],
+      "experimental": [
+        "web"
+      ],
       "gate": "none",
-      "display": "none", "dependency": "none", "tier": "B", "preset": true,
+      "display": "none",
+      "dependency": "none",
+      "tier": "B",
+      "preset": true,
       "notes": "No GPU and no window at all. The right choice for CI and servers."
     },
-
     {
-      "name": "SOFTWARE", "category": "cpu", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos", "android"], "experimental": ["web"],
+      "name": "SOFTWARE",
+      "category": "cpu",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos",
+        "android"
+      ],
+      "experimental": [
+        "web"
+      ],
       "gate": "none",
-      "display": "none", "dependency": "none", "tier": "B", "preset": true,
-      "notes": "Real CPU rasterizer. Creates no window and does not link SDL3, so Present() puts nothing on screen -- it is a compute/test renderer, not a display one."
+      "display": "none",
+      "dependency": "none",
+      "tier": "B",
+      "preset": true,
+      "notes": "Real CPU rasterizer. Creates no window, so Present() puts nothing on screen -- it is a compute/test renderer, not a display one."
     },
-
     {
-      "name": "STUB", "category": "cpu", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos", "android"], "experimental": ["web"],
+      "name": "STUB",
+      "category": "cpu",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos",
+        "android"
+      ],
+      "experimental": [
+        "web"
+      ],
       "gate": "none",
-      "display": "none", "dependency": "none", "tier": "B", "preset": true,
+      "display": "none",
+      "dependency": "none",
+      "tier": "B",
+      "preset": true,
       "notes": "Deliberate no-op renderer. Draws nothing, touches no GPU or window."
     },
     {
-      "name": "FNA3D", "category": "middleware", "dimension": "2d3d",
-      "platforms": ["linux", "windows", "macos"], "gate": "none",
-      "display": "window", "dependency": "FNA3D + MojoShader via FetchContent; needs Python3",
-      "tier": "C", "preset": true,
-      "notes": "The XNA-shaped C library FNA renders through. Picks SDL_GPU/D3D11/GL at runtime."
+      "name": "FNA3D",
+      "category": "middleware",
+      "dimension": "2d3d",
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "gate": "none",
+      "display": "window",
+      "dependency": "FNA3D + MojoShader via FetchContent; needs Python3",
+      "tier": "C",
+      "preset": true,
+      "notes": "The XNA-shaped C library FNA renders through. Picks SDL_GPU/D3D11/GL internally at runtime; SDL_GPU here is FNA3D's technology name, not CNA's SDLGPU renderer identity."
     },
     {
-      "name": "DIRECTX11", "category": "directx", "dimension": "2d3d",
-      "platforms": ["windows"], "gate": "fatal",
-      "display": "window", "dependency": "d3d11.h/dxgi.h", "tier": "X", "preset": true,
-      "notes": "Direct3D 11."
-    },
-
-    {
-      "name": "DIRECTX9", "category": "directx", "dimension": "2d3d",
-      "platforms": ["windows"], "gate": "fatal",
-      "display": "window", "dependency": "d3d9.h", "tier": "X", "preset": true,
+      "name": "DIRECTX9",
+      "category": "directx",
+      "dimension": "2d3d",
+      "platforms": [
+        "windows"
+      ],
+      "gate": "fatal",
+      "display": "window",
+      "dependency": "d3d9.h",
+      "tier": "X",
+      "preset": true,
       "notes": "Direct3D 9."
     }
   ]

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       verify_android_native:
-        description: Run the pinned assembleDebug path (currently expected to expose the CNA blocker)
+        description: Run the pinned assembleDebug path (not yet re-verified at the current pin)
         required: false
         default: false
         type: boolean
@@ -197,6 +197,10 @@ jobs:
           echo "cna=$(python3 tools/dependency_pins.py --revision CNA)" >> "$GITHUB_OUTPUT"
           echo "sharp_runtime_repository=$(python3 tools/dependency_pins.py --repository SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
           echo "sharp_runtime=$(python3 tools/dependency_pins.py --revision SHARP_RUNTIME)" >> "$GITHUB_OUTPUT"
+          echo "easy_gl_repository=$(python3 tools/dependency_pins.py --repository EASY_GL)" >> "$GITHUB_OUTPUT"
+          echo "easy_gl=$(python3 tools/dependency_pins.py --revision EASY_GL)" >> "$GITHUB_OUTPUT"
+          echo "meta_gl_repository=$(python3 tools/dependency_pins.py --repository META_GL)" >> "$GITHUB_OUTPUT"
+          echo "meta_gl=$(python3 tools/dependency_pins.py --revision META_GL)" >> "$GITHUB_OUTPUT"
 
       - name: Check out pinned CNA
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -213,10 +217,26 @@ jobs:
           ref: ${{ steps.pins.outputs.sharp_runtime }}
           path: _dependencies/sharp-runtime
 
+      # CNA's Android default renderer is OPENGLES3 (cna/cmake/RendererIdentityDefault.cmake),
+      # which CNA builds from the easy-gl sibling and easy-gl from its meta-gl sibling.
+      - name: Check out pinned easy-gl
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ steps.pins.outputs.easy_gl_repository }}
+          ref: ${{ steps.pins.outputs.easy_gl }}
+          path: _dependencies/easy-gl
+
+      - name: Check out pinned meta-gl
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: ${{ steps.pins.outputs.meta_gl_repository }}
+          ref: ${{ steps.pins.outputs.meta_gl }}
+          path: _dependencies/meta-gl
+
       # v3.2.2 ran `sdkmanager tools`, a package the runner's cmdline-tools 16.0 no longer
       # has ("Failed to find package 'tools'"), so the job died before installing anything;
       # v4.0.2 dropped that and accepts the licenses itself (cna-template's Android job, CNA
-      # plans/plan_apple_m4.md AM4-251).
+      # AM4-251).
       - name: Install the documented Android toolchain
         uses: android-actions/setup-android@7731365548f3f81c15d4c49c8f1d29101e02cdcf # v4.0.2
         with:
@@ -225,7 +245,7 @@ jobs:
           # in a row on the first v4.0.2 run. sdkmanager 12.0 installs the pinned packages below.
           cmdline-tools-version: 12.0
 
-      # CNA 0.1.0's gamer services read the host's header-only nlohmann-json in the NDK cross
+      # CNA's gamer services read the host's header-only nlohmann-json in the NDK cross
       # build too (CNA cmake/HeaderOnlyJson.cmake); libcurl is optional there and absent from the
       # NDK. Same step as cna-template's Android job.
       - name: Install host JSON headers
@@ -242,7 +262,9 @@ jobs:
             "cmake;4.1.2"
 
       - name: Verify pinned Android inputs
-        run: python3 tools/dependency_pins.py --dependencies-dir _dependencies --check CNA SHARP_RUNTIME
+        run: |
+          python3 tools/dependency_pins.py --dependencies-dir _dependencies \
+            --check CNA SHARP_RUNTIME EASY_GL META_GL
 
       - name: Exercise Gradle Wrapper and project configuration
         working-directory: android
@@ -391,8 +413,9 @@ jobs:
           grep -F "Release signing requires" "$RUNNER_TEMP/release-signing.log"
 
       # The opt-in assembleDebug step is deliberately not suppressed or marked
-      # continue-on-error. With the current pin it remains red at CNA's cna_c_api
-      # diagnostics; once CNA is fixed, make it part of required CI.
+      # continue-on-error. It was red at an earlier pin on CNA's cna_c_api
+      # diagnostics and has not been re-run at the current one; once it passes,
+      # make it part of required CI (docs/compatibility.md).
 
       - name: Ensure Android checks did not rewrite tracked files
         run: git diff --exit-code

@@ -19,8 +19,8 @@
 # CHANGELOG.md entry, and nothing else.
 # =============================================================================
 
-set(CNA_TEMPLATE_REQUIRED_CNA_VERSION           "0.1.0")
-set(CNA_TEMPLATE_REQUIRED_SHARP_RUNTIME_VERSION "0.1.0")
+set(CNA_TEMPLATE_REQUIRED_CNA_VERSION           "0.2.0")
+set(CNA_TEMPLATE_REQUIRED_SHARP_RUNTIME_VERSION "0.2.0")
 set(CNA_TEMPLATE_REQUIRED_EASYGL_VERSION        "0.1.1")   # GL-family renderers only
 set(CNA_TEMPLATE_REQUIRED_METAGL_VERSION        "0.4.1")   # GL-family renderers only
 

@@ -13,16 +13,16 @@
 #   EASY_GL, META_GL     the three EasyGL renderers (OPENGLES3/OPENGL33/WEBGL2)
 # See docs/renderers.md for the full per-renderer dependency column.
 #
-# The pinned revisions are the released tags: CNA v0.1.0, sharp-runtime v0.1.0,
-# easy-gl v0.1.1 and meta-gl v0.4.1. CNA 0.1.0 itself refuses a sibling that
-# declares another version (cna/cmake/DependencyVersions.cmake), so these four
-# must move together.
+# The pinned revisions follow CNA's development branch `next` (2026-11-09) and the
+# sibling revisions it builds against: sharp-runtime 0.2.0 (`next`), easy-gl 0.1.1
+# and meta-gl 0.4.1. CNA refuses a sibling that declares another version
+# (cna/cmake/DependencyVersions.cmake), so these four must move together.
 #
 # When updating, change only this file, regenerate renderer files if CNA's list
 # changed, and run the verification documented in README.md.
 # Record format: NAME|GITHUB_OWNER/REPOSITORY|LOCAL_DIRECTORY|40_HEX_REVISION
 
-CNA|libcna/cna|cna|10a4ef1cb4cd832f761536d77588000104947f8d
-SHARP_RUNTIME|libcna/sharp-runtime|sharp-runtime|c20373bae5be1f02d1fe2fa33c4cbba8ad05e4a0
-EASY_GL|libcna/easy-gl|easy-gl|f4d6afaf16cdc7e7e73130950bc45e6d865b41bd
-META_GL|libcna/meta-gl|meta-gl|dd3b30055d55fdc42240de7af248259338256992
+CNA|libcna/cna|cna|30142a14d789de765801ff0c87e91e090f4e94be
+SHARP_RUNTIME|libcna/sharp-runtime|sharp-runtime|0abe8a91205093e2288a6473562446d8b2d48adf
+EASY_GL|libcna/easy-gl|easy-gl|b582bd85f646678d1de38473160defed4729f323
+META_GL|libcna/meta-gl|meta-gl|795bcdcfe9e2c418ced189717d3699cbb0847cc0

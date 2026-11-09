@@ -62,7 +62,7 @@ tag selects none of them, so each release records them twice:
   at configure time (`cmake/CnaDependencyPin.cmake`); `-DCNA_ALLOW_UNPINNED=ON` acknowledges a
   deliberate build outside the baseline. CI clones the same pins.
 
-CNA 0.1.0 itself enforces its own sharp-runtime/easy-gl/meta-gl versions
+CNA itself enforces its own sharp-runtime/easy-gl/meta-gl versions
 (`cna/cmake/DependencyVersions.cmake`), so the four siblings move together.
 
 ## Pre-1.0 policy
@@ -94,7 +94,7 @@ While the major version is 0, a minor bump may change anything. Pre-release iden
    python3 tools/verify_ctest_contract.py --test-dir build-headless --config Debug
    ctest --preset headless
    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCNA_GRAPHICS_RENDERER=OPENGLES3 \
-       -DCNA_GRAPHICS_RENDERERS="OPENGLES3;OPENGL33;VULKAN;WEBGPU;SDL_GPU;FNA3D;SDL_RENDERER;SOFTWARE;HEADLESS;STUB" \
+       -DCNA_GRAPHICS_RENDERERS="OPENGLES3;OPENGL33;WEBGPU;SDLGPU;FNA3D;SOFTWARE;HEADLESS;STUB" \
        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache
    cmake --build build --parallel
    ```

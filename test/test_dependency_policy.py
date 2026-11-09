@@ -63,6 +63,13 @@ class DependencyPolicyTests(unittest.TestCase):
         )
         return lock
 
+    @staticmethod
+    def cmake_text(result: subprocess.CompletedProcess[str]) -> str:
+        # CMake wraps WARNING/FATAL_ERROR text at a fixed width, so where a phrase breaks
+        # depends on the length of the temporary path it reports (long under macOS's
+        # TMPDIR, for one). Compare the messages with their whitespace collapsed.
+        return " ".join((result.stdout + result.stderr).split())
+
     def run_cmake_policy(
         self,
         root: Path,
@@ -122,20 +129,20 @@ class DependencyPolicyTests(unittest.TestCase):
             correct_lock = self.write_lock(root, revision)
             correct = self.run_cmake_policy(root, checkout, correct_lock, False)
             self.assertEqual(0, correct.returncode, correct.stdout + correct.stderr)
-            self.assertIn("matches dependencies.lock", correct.stdout + correct.stderr)
+            self.assertIn("matches dependencies.lock", self.cmake_text(correct))
 
             wrong_lock = self.write_lock(root, "0" * 40)
             rejected = self.run_cmake_policy(root, checkout, wrong_lock, False)
             self.assertNotEqual(0, rejected.returncode)
-            self.assertIn("checkout drift", rejected.stdout + rejected.stderr)
-            self.assertIn("CNA_ALLOW_UNPINNED=ON", rejected.stdout + rejected.stderr)
+            self.assertIn("checkout drift", self.cmake_text(rejected))
+            self.assertIn("CNA_ALLOW_UNPINNED=ON", self.cmake_text(rejected))
 
             acknowledged = self.run_cmake_policy(root, checkout, wrong_lock, True)
             self.assertEqual(
                 0, acknowledged.returncode, acknowledged.stdout + acknowledged.stderr
             )
             self.assertIn(
-                "intentional unpinned", acknowledged.stdout + acknowledged.stderr
+                "intentional unpinned", self.cmake_text(acknowledged)
             )
 
     def test_cmake_policy_supports_unverifiable_source_archive_with_warning(self):
@@ -146,8 +153,8 @@ class DependencyPolicyTests(unittest.TestCase):
             lock = self.write_lock(root, "0" * 40)
             result = self.run_cmake_policy(root, source, lock, False)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            self.assertIn("has no .git metadata", result.stdout + result.stderr)
-            self.assertIn("verified pinned checkout", result.stdout + result.stderr)
+            self.assertIn("has no .git metadata", self.cmake_text(result))
+            self.assertIn("verified pinned checkout", self.cmake_text(result))
 
     def test_cmake_policy_is_applied_to_sharp_runtime_not_only_cna(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -162,7 +169,7 @@ class DependencyPolicyTests(unittest.TestCase):
             )
             self.assertIn(
                 "SHARP_RUNTIME matches dependencies.lock",
-                accepted.stdout + accepted.stderr,
+                self.cmake_text(accepted),
             )
 
             (checkout / "drift.txt").write_text("drift\n")
@@ -171,7 +178,7 @@ class DependencyPolicyTests(unittest.TestCase):
             )
             self.assertNotEqual(0, rejected.returncode)
             self.assertIn(
-                "SHARP_RUNTIME checkout drift", rejected.stdout + rejected.stderr
+                "SHARP_RUNTIME checkout drift", self.cmake_text(rejected)
             )
 
     def test_ordinary_build_wires_all_direct_consumed_pins(self):

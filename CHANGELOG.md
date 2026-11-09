@@ -9,6 +9,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 
 ## [Unreleased]
 
+### Changed
+
+- **Moved to CNA `next` (CNA 0.2.0, C ABI 0.60.0) and its 10 renderers.** `dependencies.lock`
+  pins CNA `30142a14d789de765801ff0c87e91e090f4e94be`, sharp-runtime 0.2.0
+  `0abe8a91205093e2288a6473562446d8b2d48adf`, easy-gl 0.1.1
+  `b582bd85f646678d1de38473160defed4729f323` and meta-gl 0.4.1
+  `795bcdcfe9e2c418ced189717d3699cbb0847cc0`; `cmake/CnaTemplateDependencies.cmake` now requires
+  CNA 0.2.0 and sharp-runtime 0.2.0. The template was last verified on C ABI 0.46.0.
+- **Renderers follow CNA.** `SDLGPU` replaces `SDL_GPU`, which CNA renamed; `SDL_RENDERER`,
+  `VULKAN`, `METAL` and `DIRECTX11`, which CNA retired, are gone from the manifest, the generated
+  presets (`sdl-renderer`, `sdl-gpu`, `vulkan`, `metal`, `directx11` and `windows-directx11`; the
+  new one is `sdlgpu`), `docs/renderers.md` and the README. `WEBGPU` lists the web as a supported
+  platform rather than an experimental one.
+- **CNA's per-platform default is stated as CNA now chooses it**: `WEBGL2` under Emscripten,
+  `SDLGPU` on Windows, macOS and iOS, `OPENGLES3` everywhere else (Linux, Android, the BSDs). On
+  Android the default APK therefore renders with `OPENGLES3`: the manifest declares GLES 3 as
+  required, and the Android CI job checks out the pinned easy-gl and meta-gl it is built from.
+- The configure no longer looks for an `SDL3_image` package. CNA removed its `SDL_image`
+  submodule and decodes images itself, so the required lookup failed on a host without a system
+  SDL3_image and silently imported an unrelated one on a host that had it. The quick start no
+  longer initializes the removed submodule.
+- `docs/compatibility.md` records that CNA-CAPI-STATIC is fixed upstream (the option stays off
+  here), that the GCC 13 media `Equals` hiding and the earlier Android NDK diagnostics are gone
+  from CNA's headers (neither re-verified with that compiler), and the generator derives the
+  Windows-only preset names it documents from the manifest.
+- The CMake pin-policy tests compare CMake's messages with whitespace collapsed, so they no longer
+  depend on where CMake wraps a long temporary path (as under macOS's `TMPDIR`).
+
+### Verification
+
+- `tools/gen_renderer_files.py --check`: the manifest matches CNA's 10 canonical renderers and the
+  generated files are up to date; `python3 -m unittest discover -s test`: **61/61**.
+- `HEADLESS`, Debug, GCC 14.2.0, Ninja, as the CI job configures it: the configure accepts CNA
+  0.2.0 and sharp-runtime 0.2.0 at their pins with no warning; the C game compiles against C ABI
+  0.60.0 without a source change and without a warning; the CTest contract verifies, both tests
+  pass, and the failure-injection checks give exit statuses 86, 2 and 1 as required.
+- `OPENGLES3`, Debug, the same way plus easy-gl and meta-gl: builds with no warning; the CTest
+  contract verifies and both tests pass on CNA's private display (Mesa OpenGL ES 3.2).
+- Windows, macOS, the web and Android were not re-verified at this pin.
+
 ## [0.1.0] — 2026-10-10
 
 First tagged release. The template has declared 0.1.0 in `project()` since its first commit; this

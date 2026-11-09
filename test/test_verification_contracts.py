@@ -261,6 +261,11 @@ class CTestContractTests(unittest.TestCase):
         )
         self.assertLess(wrapper_validation, cna_checkout)
         self.assertLess(wrapper_validation, sharp_runtime_checkout)
+        # CNA's Android default renderer, OPENGLES3, is built from easy-gl and meta-gl.
+        for sibling in ("easy-gl", "meta-gl"):
+            with self.subTest(sibling=sibling):
+                checkout = android_job.index(f"path: _dependencies/{sibling}")
+                self.assertLess(wrapper_validation, checkout)
         self.assertIn("validate-wrappers: true", android_job[:cna_checkout])
 
     def test_ci_uses_only_supported_setup_gradle_inputs(self):

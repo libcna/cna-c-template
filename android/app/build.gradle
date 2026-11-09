@@ -182,10 +182,10 @@ rendererDependencyNames.each { dependencyName ->
     )
 }
 
-// Override with -PcnaRenderer=OPENGLES3 to pick a renderer other than CNA's own
-// Android default (SDL_RENDERER). Not every renderer is Android-capable -- see
-// docs/renderers.md -- and the ones that need ../easy-gl + ../meta-gl need those
-// siblings present regardless of how this is built.
+// Override with -PcnaRenderer=<NAME> to pick a renderer other than CNA's own
+// Android default (OPENGLES3). Not every renderer is Android-capable -- see
+// docs/renderers.md -- and the EasyGL ones, the default included, need
+// ../easy-gl + ../meta-gl present regardless of how this is built.
 def cnaSdlJavaDir = new File(cnaRootDir, "third_party/SDL/android-project/app/src/main/java")
 if (!cnaSdlJavaDir.isDirectory()) {
     throw new GradleException(

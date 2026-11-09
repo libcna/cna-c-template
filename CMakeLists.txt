@@ -3,9 +3,9 @@
 # =============================================================================
 # Everything renderer-specific in this file is driven by cmake/renderers.json
 # (see cmake/CnaRenderers.cmake). There is deliberately no per-renderer
-# if/elseif chain here: CNA's renderer set changes (it has 14 public renderers
-# since RRC-018 retired the rest), so the template treats the renderer set as
-# data rather than as code.
+# if/elseif chain here: CNA's renderer set changes (it has 10 public renderers
+# and refuses retired names at configure time), so the template treats the
+# renderer set as data rather than as code.
 #
 # CMake 3.23 is the floor because the easy-gl/meta-gl siblings backing the
 # OPENGLES3/OPENGL33/WEBGL2 renderers require it (FILE_SET
@@ -173,11 +173,10 @@ endif()
 # Enable the C API in the framework build.
 set(CNA_BUILD_C_API ON CACHE BOOL "Build the CNA C API" FORCE)
 # This application consumes CNA::CApi, the shared C ABI. CNA's optional static
-# packaging target is not part of the application and its link-line extraction
-# currently assumes Makefile-only link.txt metadata that Ninja does not emit.
-# Disable that unrelated ALL target explicitly rather than letting a successful
-# application build fail while producing an unused distribution artifact. See
-# docs/compatibility.md (CNA-CAPI-STATIC).
+# packaging target is not part of the application: it is an ALL target that
+# rewrites a single relocatable archive of the whole closure (a few hundred MB
+# in a Debug tree) whenever the library relinks. Disable that unused
+# distribution artifact explicitly. See docs/compatibility.md (CNA-CAPI-STATIC).
 set(CNA_C_API_BUILD_STATIC OFF CACHE BOOL
     "Build CNA's optional combined static C API distribution archive" FORCE)
 
@@ -205,8 +204,9 @@ endif()
 # -----------------------------------------------------------------------------
 # CNA_GRAPHICS_RENDERER is CNA's own public cache variable and this template
 # passes it straight through -- it deliberately does not re-declare a default.
-# If you set nothing, CNA picks its own (WEBGL2 on the web, OPENGLES3 on Linux,
-# SDL_RENDERER elsewhere) and the template validates the result afterwards.
+# If you set nothing, CNA picks its own (WEBGL2 on the web, SDLGPU on Windows,
+# macOS and iOS, OPENGLES3 everywhere else -- Linux, Android, the BSDs) and the
+# template validates the result afterwards.
 #
 # CNA also exposes CNA_RENDERER_<NAME> booleans as an alternative input path.
 # They all default to OFF and CNA only consults them if one is switched ON, so
@@ -346,10 +346,11 @@ message(STATUS "cna-template: renderer ${CNA_GRAPHICS_RENDERER} "
 
 # SDL's IMPORTED targets are created by find_package() inside CNA's directory
 # scope, so they are not visible up here. Re-importing is cheap and idempotent:
-# CNA has already cached each *_DIR pointing at the libraries it built. All
-# three must be visible here so cna_copy_sdl_runtime() can package their DLLs.
+# CNA has already cached each *_DIR pointing at the libraries it built. Both
+# must be visible here so cna_copy_sdl_runtime() can package their DLLs. CNA
+# builds no SDL3_image (it decodes images itself), so none is looked for.
 # This must come after add_subdirectory() for exactly that reason.
-foreach(_sdl_package IN ITEMS SDL3 SDL3_image SDL3_mixer)
+foreach(_sdl_package IN ITEMS SDL3 SDL3_mixer)
     if(NOT TARGET ${_sdl_package}::${_sdl_package})
         find_package(${_sdl_package} REQUIRED CONFIG)
     endif()
