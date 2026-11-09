@@ -238,12 +238,10 @@ jobs:
       # v4.0.2 dropped that and accepts the licenses itself (cna-template's Android job, CNA
       # AM4-251).
       - name: Install the documented Android toolchain
-        uses: android-actions/setup-android@7731365548f3f81c15d4c49c8f1d29101e02cdcf # v4.0.2
-        with:
-          # The runner image ships cmdline-tools 12.0 as `latest`; asking for exactly that keeps
-          # the action from downloading another one from dl.google.com, which aborted three times
-          # in a row on the first v4.0.2 run. sdkmanager 12.0 installs the pinned packages below.
-          cmdline-tools-version: 12.0
+        # v4.0.4 with its default cmdline-tools build (as cna-template's Android job uses). The
+        # former `cmdline-tools-version: 12.0` only matched what the runner image preinstalled;
+        # once the image moved to 20.0 the action tried to download "12" and got a 404.
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
 
       # CNA's gamer services read the host's header-only nlohmann-json in the NDK cross
       # build too (CNA cmake/HeaderOnlyJson.cmake); libcurl is optional there and absent from the
