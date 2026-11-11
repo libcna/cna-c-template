@@ -12,8 +12,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the
 ### Changed
 
 - **Moved to CNA `next` (CNA 0.2.0, C ABI 0.60.0) and its 10 renderers.** `dependencies.lock`
-  pins CNA `30142a14d789de765801ff0c87e91e090f4e94be`, sharp-runtime 0.2.0
-  `0abe8a91205093e2288a6473562446d8b2d48adf`, easy-gl 0.1.1
+  pins CNA `4ef67873b252bb07bcb270011ae7bc5a55aac105`, sharp-runtime 0.2.0
+  `f8ea4b1f781fffab887d55966949395ae6e1b5ab`, easy-gl 0.1.1
   `b582bd85f646678d1de38473160defed4729f323` and meta-gl 0.4.1
   `795bcdcfe9e2c418ced189717d3699cbb0847cc0`; `cmake/CnaTemplateDependencies.cmake` now requires
   CNA 0.2.0 and sharp-runtime 0.2.0. The template was last verified on C ABI 0.46.0.
