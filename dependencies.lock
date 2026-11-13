@@ -13,7 +13,7 @@
 #   EASY_GL, META_GL     the three EasyGL renderers (OPENGLES3/OPENGL33/WEBGL2)
 # See docs/renderers.md for the full per-renderer dependency column.
 #
-# The pinned revisions follow CNA's development branch `next` (2026-11-12) and the
+# The pinned revisions follow CNA's development branch `next` (2026-11-13) and the
 # sibling revisions it builds against: sharp-runtime 0.2.0 (`next`), easy-gl 0.1.1
 # and meta-gl 0.4.1. CNA refuses a sibling that declares another version
 # (cna/cmake/DependencyVersions.cmake), so these four must move together.
@@ -22,7 +22,7 @@
 # changed, and run the verification documented in README.md.
 # Record format: NAME|GITHUB_OWNER/REPOSITORY|LOCAL_DIRECTORY|40_HEX_REVISION
 
-CNA|libcna/cna|cna|4ccbe5b8048ee9ce3aba06bcc2663427156405da
+CNA|libcna/cna|cna|d1c93622503e8a3a45fbafa949046dc965f4a92e
 SHARP_RUNTIME|libcna/sharp-runtime|sharp-runtime|de06c17c1f02e480c69473b42796a7194edd17fb
 EASY_GL|libcna/easy-gl|easy-gl|b582bd85f646678d1de38473160defed4729f323
 META_GL|libcna/meta-gl|meta-gl|795bcdcfe9e2c418ced189717d3699cbb0847cc0
